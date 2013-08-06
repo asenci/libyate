@@ -45,18 +45,13 @@ KW_MAP = {
 class YateApp(object):
     """Base class for Yate applications"""
 
-    def __init__(self, debug=False, logcfg=None, handler_map=None):
+    def __init__(self, debug=False, handler_map=None):
         """Initialize the class, optionally overriding the handlers map"""
 
-        loggingconfig = {
+        logging.basicConfig(**{
             'level': logging.DEBUG if debug else logging.INFO,
             'format': '%(message)s',
-        }
-
-        if logcfg:
-            loggingconfig.update(logcfg)
-
-        logging.basicConfig(**loggingconfig)
+        })
 
         self.logger = logging.getLogger(__name__)
 
@@ -77,11 +72,12 @@ class YateApp(object):
         if handler_map:
             self.handlers.update(handler_map)
 
-    def gen_id(self, size=10):
+    def gen_id(self, length=10):
+        """Generate a random integer"""
         try:
-            return random.SystemRandom().randint(10**(size-1), 10**size-1)
+            return random.SystemRandom().randint(10**(length-1), 10**length-1)
         except:
-            return random.randint(10**(size-1), 10**size-1)
+            return random.randint(10**(length-1), 10**length-1)
 
     def handle_command(self, line):
         """Handle incoming commands"""
@@ -101,7 +97,7 @@ class YateApp(object):
                 self.logger.debug(
                     'Using function "{}" to process the command'
                     .format(handler.__name__))
-                    handler(cmd)
+                handler(cmd)
 
     def handle_message(self, command):
         """Simple messages processing stub"""
@@ -111,7 +107,7 @@ class YateApp(object):
             orig = self.queues[KW_MESSAGE][command['id']]
         except KeyError:
             # New message, store message in the queue
-            self.self.queues[KW_MESSAGE][command['id']] = command
+            self.queues[KW_MESSAGE][command['id']] = command
         else:
             # Message update, update the message in the queue
             orig.update(command)
@@ -122,7 +118,7 @@ class YateApp(object):
         reply['method'] = KW_MESSAGEREPLY
         reply.pop('timestamp', None)
 
-        self.write(dict_to_cmd(reply))
+        return dict_to_cmd(reply)
 
     def handle_message_reply(self, command):
         """Simple messages reply processing stub"""
@@ -142,7 +138,22 @@ class YateApp(object):
             # Else, update the message parameters
             orig.update(command)
 
-    def send_install(self, name, priority='', filtername='', filtervalue=''):
+    def new_connect(self, role, id='', type=''):
+        """Attach to the socket interface"""
+
+        command = {
+            'method': KW_CONNECT,
+            'role': role,
+            'id': id,
+            'type': type,
+        }
+
+        if not command['id']:
+            command['id'] = self.gen_id()
+
+        return dict_to_cmd(command)
+
+    def new_install(self, name, priority='', filtername='', filtervalue=''):
         """Requests the installation of a message handler"""
 
         command = {
@@ -157,26 +168,9 @@ class YateApp(object):
                 command['filtervalue'] = filtervalue
 
         self.queues[KW_INSTALL][name] = command
-        self.write(command)
+        return dict_to_cmd(command)
 
-    def send_install(self, name, priority='', filtername='', filtervalue=''):
-        """Requests the installation of a message handler"""
-
-        command = {
-            'method': KW_INSTALL,
-            'priority': priority,
-            'name': name,
-        }
-
-        if filtername:
-            command['filtername'] = filtername
-            if filtervalue:
-                command['filtervalue'] = filtervalue
-
-        self.queues[KW_INSTALL][name] = command
-        self.write(command)
-
-    def send_message(self, name, id='', timestamp='', retval='', **kwargs):
+    def new_message(self, name, id='', timestamp='', retval='', **kwargs):
         """Send message to the Yate engine"""
 
         command = {
@@ -195,79 +189,73 @@ class YateApp(object):
             command['timestamp'] = datetime.datetime.now()
 
         self.queues[KW_MESSAGE][command['id']] = command
-        self.write(command)
+        return dict_to_cmd(command)
+
+    def new_output(self, output):
+        """Relay arbitrary output messages to engine's logging output"""
+
+        command = {'method': KW_OUTPUT, 'output': output}
+
+        return dict_to_cmd(command)
+
+    def new_setlocal(self, name, value):
+        """Requests the change of a local parameter"""
+
+        command = {'method': KW_SETLOCAL, 'name': name, 'value': value}
+
+        self.queues[KW_SETLOCAL][name] = command
+        return dict_to_cmd(command)
+
+    def new_uninstall(self, name):
+        """Requests uninstalling a previously installed message handler"""
+
+        command = {'method': KW_UNINSTALL, 'name': name}
+
+        self.queues[KW_UNINSTALL][name] = command
+        return dict_to_cmd(command)
+
+    def new_unwatch(self, name):
+        """Requests the installing of a message watcher"""
+
+        command = {'method': KW_UNWATCH, 'name': name}
+
+        self.queues[KW_UNWATCH][name] = command
+        return dict_to_cmd(command)
+
+    def new_watch(self, name):
+        """Requests the installing of a message watcher"""
+
+        command = {'method': KW_WATCH, 'name': name}
+
+        self.queues[KW_WATCH][name] = command
+        return dict_to_cmd(command)
 
 
 class YateScript(YateApp):
     """Yate global external module"""
 
-    def __init__(self, debug=False, logcfg=None, handler_map=None,
-                 stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr,
-                 **kwargs):
-
-        loggingconfig = {'stream': stderr}
-        if logcfg:
-            logcfg.update(loggingconfig)
-        else:
-            logcfg = loggingconfig
-
-        super(YateScript, self).__init__(debug=debug, logcfg=logcfg,
-                                         handler_map=handler_map, **kwargs)
-
-        self.stdin = stdin
-        self.stdout = stdout
-        self.stderr = stderr
-
-        # Use epoll if available
-        if hasattr(select, 'epoll'):
-            self.poller = select.epoll()
-
-            try:
-                self.poller.register(self.stdin, select.EPOLLIN)
-            except IOError:
-                del self.poller
-        # Else, use poll if available
-        elif hasattr(select, 'poll'):
-            self.poller = select.poll()
-
-            try:
-                self.poller.register(self.stdin, select.POLLIN)
-            except IOError:
-                del self.poller
-
-        # Function to wait for the next command
-        if hasattr(self, 'poller'):
-            self.wait = lambda: self.poller.poll()
-        else:
-            # Use select if poll is not available
-            self.wait = lambda: select.select([self.stdin], [], [])
-
-    def __del__(self):
-        if hasattr(self, 'poller'):
-            # Unregister the file descriptor poller
-            self.poller.unregister(self.stdin)
-
     def readline(self):
-        self.wait()
-        line = self.stdin.readline()
+        line = raw_input()
 
-        if line.strip():
-            self.logger.debug('Received: {}'.format(line.strip()))
+        self.logger.debug('Received: {}'.format(line))
 
         return line
 
     def run(self):
-        self.logger.info('Loading script: {}'.format(__file__))
+        self.logger.info('Loading application "{}" from script "{}"'
+                         .format(__name__, __file__))
 
-        while line:
-            line = self.readline()
-            if line:
-                self.handle_command(line)
+        while True:
+            try:
+                self.write(self.handle_command(self.readline()))
+            except EOFError:
+                self.logger.info('End of file.')
+                break
 
     def write(self, line):
-        if line.strip():
-            self.logger.debug('Sending: {}'.format(line.strip()))
-            self.stdout.write(line)
+        if line:
+            self.logger.debug('Sending: {}'.format(line))
+            print(line)
 
 
 class YateSocketClient(YateApp):
