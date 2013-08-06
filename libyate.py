@@ -381,8 +381,8 @@ class YateScript(YateApp):
 
         return line
 
-    def run(self):
-        self.logger.info('Loading script "{}"'.format(__file__))
+    def run(self, name=__file__):
+        self.logger.info('Loading script "{}"'.format(name))
 
         while True:
             try:
@@ -430,7 +430,6 @@ def cmd_to_dict(command):
             command[key] = int(command[key])
         elif key == 'processed':
             command[key] = True if command[key] == 'true' else False
-            print command[key]
         elif key == 'success':
             command[key] = True if command[key] == 'true' else False
         elif key == 'timestamp':

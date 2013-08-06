@@ -1,0 +1,14 @@
+%%<setlocal:testing:true:true
+%%<install:50:test:true
+%%<install:100:engine.timer:true
+%%<watch:call.route:true
+%%<message:myapp55251:true:app.job:Restart required:path=/bin%Z/usr/bin%Z/usr/local/bin
+%%>message:234479208:1095112795:engine.timer::time=1095112795
+%%>message:234479288:1095112796:engine.timer::time=1095112796
+%%>message:234479244:1095112797:engine.timer::time=1095112797
+%%<uninstall:50:test:false
+%%<uninstall:100:engine.timer:true
+%%>message:234479244:1095112797:engine.test:false
+%%<unwatch:call.route:true
+%%>teste:234479244:1095112797:engine.test:false
+Error in:test %% string !
