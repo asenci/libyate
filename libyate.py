@@ -43,17 +43,19 @@ KW_MAP = {
 class YateApp(object):
     """Base class for Yate applications"""
 
-    def __init__(self, debug=False, quiet=False, handler_map=None):
+    def __init__(self, name=__name__, debug=False, quiet=False,
+                 handler_map=None):
         """Initialize the class, optionally overriding the handlers map"""
 
         logging.basicConfig(**{
             'level': (logging.DEBUG if debug else
                       logging.WARN if quiet else
                       logging.INFO),
-            'format': '%(message)s',
+            'format': '%(created)f <%(name)s> %(message)s',
         })
 
-        self.logger = logging.getLogger(__name__)
+        self.name = name
+        self.logger = logging.getLogger(self.name)
 
         self.queues = {
             KW_INSTALL: {},
@@ -97,10 +99,10 @@ class YateApp(object):
             handler = self.handlers[command['method']]
         except KeyError:
             raise NotImplementedError(
-                'Method "{}" not implemented'.format(command['method']))
+                'Method "{0}" not implemented'.format(command['method']))
         else:
             self.logger.debug(
-                'Using method "{}" to process the command'
+                'Using method "{0}" to process the command'
                 .format(handler.__name__))
 
         if handler:
@@ -377,12 +379,12 @@ class YateScript(YateApp):
     def readline(self):
         line = raw_input()
 
-        self.logger.debug('Received: {}'.format(line))
+        self.logger.debug('Received: {0}'.format(line))
 
         return line
 
-    def run(self, name=__file__):
-        self.logger.info('Loading script "{}"'.format(name))
+    def run(self):
+        self.logger.info('Loading script "{0}"'.format(self.name))
 
         while True:
             try:
@@ -395,7 +397,7 @@ class YateScript(YateApp):
 
     def write(self, line):
         if line:
-            self.logger.debug('Sending: {}'.format(line))
+            self.logger.debug('Sending: {0}'.format(line))
             print(line)
 
 
@@ -414,7 +416,8 @@ def cmd_to_dict(command):
     try:
         keys = KW_MAP[method]
     except KeyError:
-        raise NotImplementedError('Method "{}" not implemented'.format(method))
+        raise NotImplementedError(
+            'Method "{0}" not implemented'.format(method))
 
     # Map the keys to the values
     command = dict(zip(keys, command.split(':', len(keys)-1)))
@@ -451,7 +454,7 @@ def dict_to_cmd(command):
     try:
         keys = KW_MAP[command['method']]
     except KeyError:
-        raise NotImplementedError('Method "{}" not implemented'
+        raise NotImplementedError('Method "{0}" not implemented'
                                   .format(command['method']))
 
     reply = [command.pop('method', '')]
