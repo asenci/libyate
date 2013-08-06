@@ -1,6 +1,6 @@
 import libyate
 
-myapp = libyate.YateScript(debug=True, quiet=False)
+myapp = libyate.YateScript(debug=False, quiet=False)
 
 myapp.write(myapp.new_setlocal('testing', 'true'))
 myapp.write(myapp.new_install('test', 50))
