@@ -518,16 +518,14 @@ class YateSocketClient(YateExtModule):
 
 
 if __name__ == '__main__':
-    from argparse import ArgumentParser
+    from optparse import OptionParser
 
-    parser = ArgumentParser(
-        description='Sample external module for Yate telephony engine')
+    parser = OptionParser()
+    parser.add_option('-d', '--debug', action='store_true',
+                      help='increase logging verbosity')
+    parser.add_option('-q', '--quiet', action='store_true',
+                      help='reduce the logging verbosity')
+    parser.add_option('-n', '--name', default=__file__,
+                      help='name used for logging')
 
-    parser.add_argument('-d', '--debug', action='store_true',
-                        help='increase logging verbosity')
-    parser.add_argument('-q', '--quiet', action='store_true',
-                        help='reduce the logging verbosity')
-    parser.add_argument('-n', '--name', default=__file__,
-                        help='name used for logging')
-
-    YateExtModule(**vars(parser.parse_args())).run()
+    YateExtModule(**vars(parser.parse_args()[0])).run()
