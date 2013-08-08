@@ -37,7 +37,7 @@ A more "pythonic" aproach to Yate.
                       help='reduce the logging verbosity')
     parser.add_option('-n', '--name', default=__file__,
                       help='name used for logging')
-    
+
     myapp(**vars(parser.parse_args()[0])).run()
 
 Can be tested passing this lines into stdin:

@@ -432,11 +432,9 @@ class YateExtModule(object):
         """Command reply handler"""
 
         # Retrieve the command from the queue
-        try:
-            cmd = self.queue_pop(reply)
-        except KeyError:
-            self.logger.error('Invalid reply: {0}'.format(reply))
-        else:
+        cmd = self.queue_pop(reply)
+
+        if cmd:
             # Send the reply to the command instance
             if cmd(reply):
                 self.logger.debug(
@@ -468,7 +466,7 @@ class YateExtModule(object):
         """Retrieve a command from the queue"""
 
         # Remove the command from the queue if present
-        return self.queue.pop(repr(cmd))
+        return self.queue.pop(repr(cmd), {})
 
     def queue_push(self, cmd):
         """Insert a command into the queue"""
