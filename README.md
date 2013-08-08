@@ -6,21 +6,42 @@ A more "pythonic" aproach to Yate.
     :::python
     import libyate
 
-    myapp = libyate.YateScript(debug=False, quiet=False)
 
-    myapp.write(myapp.new_setlocal('testing', 'true'))
-    myapp.write(myapp.new_install('test', 50))
-    myapp.write(myapp.new_install('engine.timer'))
-    myapp.write(myapp.new_watch('call.route'))
-    myapp.write(myapp.new_watch('call.route'))
-    myapp.write(myapp.new_message('app.job', id='myapp55251',
-                                  job='cleanup', done='75%',
-                                  path='/bin:/usr/bin'))
-    myapp.write(myapp.new_uninstall('test'))
-    myapp.write(myapp.new_uninstall('engine.timer'))
-    myapp.write(myapp.new_unwatch('call.route'))
+    class myapp(libyate.YateExtModule):
+        def on_start(self):
+            self.send(libyate.YateCmdSetLocal('testing', 'true'))
+            self.send(libyate.YateCmdInstall('test', 50))
+            self.send(libyate.YateCmdInstall('engine.timer'))
+            self.send(libyate.YateCmdWatch('call.route'))
+            self.send(libyate.YateCmdMessage('app.job',
+                                                    id='myapp55251',
+                                                    extras={
+                                                        'job': 'cleanup',
+                                                        'done': '75%',
+                                                        'path': '/bin:/usr/bin'
+                                                    }))
+            self.send(libyate.YateCmdUnInstall('test'))
+            self.send(libyate.YateCmdUnInstall('engine.timer'))
+            self.send(libyate.YateCmdUnWatch('call.route'))
 
-    myapp.run(name=__file__)
+        def on_stop(self):
+            pass
+
+
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(
+        description='Sample external module for Yate telephony engine')
+
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help='increase logging verbosity')
+    parser.add_argument('-q', '--quiet', action='store_true',
+                        help='reduce the logging verbosity')
+    parser.add_argument('-n', '--name', default=__file__,
+                        help='name used for logging')
+
+
+    myapp(**vars(parser.parse_args())).run()
 
 Can be tested passing this lines into stdin:
 
@@ -28,34 +49,28 @@ Can be tested passing this lines into stdin:
     %%<setlocal:testing:true:true
     %%<install:50:test:true
     %%<install:100:engine.timer:true
-    %%<watch:call.route:true
-    %%<message:myapp55251:true:app.job:Restart required:path=/bin%Z/usr/bin%Z/usr/local/bin
+    %%<message:myapp55251:true:app.job:Restart required:path=/bin%z/usr/bin%z/usr/local/bin
     %%>message:234479208:1095112795:engine.timer::time=1095112795
     %%>message:234479288:1095112796:engine.timer::time=1095112796
     %%>message:234479244:1095112797:engine.timer::time=1095112797
     %%<uninstall:50:test:false
     %%<uninstall:100:engine.timer:true
+    %%<uninstall:100:engine.timer:true
     %%>message:234479244:1095112797:engine.test:false
     %%<unwatch:call.route:true
+    Error in:%%>watch:call.route
     %%>teste:234479244:1095112797:engine.test:false
-    Error in:test %% string !
 
 Expected output:
 
     :::text
     $ python sample.py < sample_reply.txt >/dev/null
-    Loading script "sample.py"
-    Parameter changed successfully: testing=true
-    Message handler installed successfully for: test
-    Message handler installed successfully for: engine.timer
-    Message watcher installed successfully for: call.route
-    Processing completed on message "myapp55251"
-    Error uninstalling message handler for: test
-    Message handler uninstalled successfully for: engine.timer
-    Message watcher uninstalled successfully for: call.route
-    Method "%%>teste" not implemented
-    Invalid command: test % string !
-    End of stream
+    1376003543.481805 <sample.py:INFO> Loading module
+    1376003543.484129 <sample.py:ERROR> Error executing command: %%>uninstall:test
+    1376003543.484354 <sample.py:ERROR> Invalid reply: %%<uninstall:100:engine.timer:true
+    1376003543.484662 <sample.py:ERROR> Invalid command: %%>watch:call.route
+    1376003543.484799 <sample.py:ERROR> Method "%%>teste" not implemented
+
 
 ## Licensing:
 Licensed under ISC license:
