@@ -1,4 +1,4 @@
-# Python library for developing Yate IVR's
+# Python library for developing Yate external modules
 A more "pythonic" aproach to Yate.
 
 ## Sample application:
