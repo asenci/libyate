@@ -93,7 +93,7 @@ class YateCmd(object):
 
                 # Convert a timestamp string into a datetime object
                 elif attr == 'timestamp':
-                    setattr(self, attr, datetime.fromtimestamp(int(value)))
+                    setattr(self, attr, datetime.fromtimestamp(float(value)))
 
                 # Extra parameters
                 elif attr == 'extras':
@@ -495,7 +495,7 @@ class YateExtModule(object):
 
             # Intercept exceptions and log the error if debugging is disable
             except (None if self.debug else Exception), e:
-                self.logger.error(e.message)
+                self.logger.error(e)
 
     def send(self, cmd):
         """Command output handler"""
