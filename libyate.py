@@ -298,10 +298,17 @@ class YateCmdMessage(YateCmd):
 class YateCmdMessageReply(YateCmd):
     """Yate message reply command"""
 
-    def __init__(self, cmd, method=KW_MESSAGEREPLY):
+    def __init__(self, cmd, method=KW_MESSAGEREPLY, **kwargs):
+
+        # Parameters
+        if kwargs:
+            kwargs.update(locals())
+        else:
+            kwargs = locals().copy()
+        kwargs.pop('self')
 
         # Run the init code
-        YateCmd.__init__(self, cmd, method=method)
+        YateCmd.__init__(self, **kwargs)
 
 
 class YateCmdOutput(YateCmd):
@@ -475,7 +482,7 @@ class YateExtModule(object):
 
     def run(self):
         """Main loop"""
-        self.logger.info('Loading module')
+        self.logger.debug('Loading module')
         self.on_start()
 
         self.logger.debug('Entering main loop')
