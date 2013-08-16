@@ -416,7 +416,9 @@ class YateExtModule(object):
 
         # New message
         if cmd.method == KW_MESSAGE:
-            self.handle_message(cmd)
+
+            # Process and send reply
+            self.send(self.handle_message(cmd))
 
         # Command error
         elif cmd.method == KW_ERROR:
@@ -433,7 +435,7 @@ class YateExtModule(object):
         """Stub message handler"""
 
         # Reply without processing
-        self.send(YateCmdMessageReply(cmd))
+        return YateCmdMessageReply(cmd)
 
     def handle_reply(self, reply):
         """Command reply handler"""
