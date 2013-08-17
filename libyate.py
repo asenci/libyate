@@ -406,10 +406,12 @@ class YateExtModule(object):
 
     def _write(self, cmd):
         """Write commands to stdout"""
+        import sys
 
         self.logger.debug('Sending: {0}'.format(cmd))
 
         print(cmd)
+        sys.stdout.flush()
 
     def handle_input(self, cmd):
         """Command input handler"""

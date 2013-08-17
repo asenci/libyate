@@ -1,15 +1,10 @@
 # Python library for developing Yate external modules
 A more "pythonic" aproach to Yate.
 
-**Important note:**
-
-You must run your application with buffering disabled (python -u) or override
-the `_read` and `_write` methods from `libyate.YateExtModule`.
-
 ## Sample application:
 
     :::python
-    #!/usr/bin/python -u
+    #!/usr/bin/env python
     import libyate
 
 
