@@ -230,7 +230,7 @@ class YateCmd(object):
         return ''.join(result)
 
     @staticmethod
-    def upcode(string, special=(':', '=')):
+    def upcode(string, special=':'):
         """Encode string into Yate upcoded"""
 
         # Init empty list
