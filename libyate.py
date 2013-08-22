@@ -1,4 +1,6 @@
-#!/usr/bin/env python
+"""
+libyate.py - Python library for developing Yate external modules
+"""
 
 # Keywords definition
 KW_CONNECT = '%%>connect'
@@ -17,145 +19,192 @@ KW_UNWATCHREPLY = '%%<unwatch'
 KW_WATCH = '%%>watch'
 KW_WATCHREPLY = '%%<watch'
 
-KW_MAP = {
-    KW_CONNECT: ['role', 'id', 'type'],
-    KW_ERROR: ['command'],
-    KW_INSTALL: ['priority', 'name', 'filtername', 'filtervalue'],
-    KW_INSTALLREPLY: ['priority', 'name', 'success'],
-    KW_MESSAGE: ['id', 'timestamp', 'name', 'retval', 'extras'],
-    KW_MESSAGEREPLY: ['id', 'processed', 'name', 'retval', 'extras'],
-    KW_OUTPUT: ['output'],
-    KW_SETLOCAL: ['name', 'value'],
-    KW_SETLOCALREPLY: ['name', 'value', 'success'],
-    KW_UNINSTALL: ['name'],
-    KW_UNINSTALLREPLY: ['priority', 'name', 'success'],
-    KW_UNWATCH: ['name'],
-    KW_UNWATCHREPLY: ['name', 'success'],
-    KW_WATCH: ['name'],
-    KW_WATCHREPLY: ['name', 'success'],
-}
-
 
 class YateCmd(object):
     """Object representing an Yate command"""
+
+    # Internal attributes
+    __id__ = ''
+    __method__ = ''
+    __params__ = ()
+
+    def __new__(cls, cmd=None, **kwargs):
+        """Return a Yate command object from a command string"""
+
+        if cls != YateCmd:
+            return super(YateCmd, cls).__new__(cls)
+
+        else:
+
+            if isinstance(cmd, str):
+                method = cmd.partition(':')[0]
+            elif isinstance(cmd, YateCmd):
+                method = cmd.__method__
+            else:
+                method = kwargs.get('method', '')
+
+            if method == KW_CONNECT:
+                return super(YateCmd, cls).__new__(YateCmdConnect)
+
+            elif method == KW_ERROR:
+                return super(YateCmd, cls).__new__(YateCmdError)
+
+            elif method == KW_INSTALL:
+                return super(YateCmd, cls).__new__(YateCmdInstall)
+
+            elif method == KW_INSTALLREPLY:
+                return super(YateCmd, cls).__new__(YateCmdInstallReply)
+
+            elif method == KW_MESSAGE:
+                return super(YateCmd, cls).__new__(YateCmdMessage)
+
+            elif method == KW_MESSAGEREPLY:
+                return super(YateCmd, cls).__new__(YateCmdMessageReply)
+
+            elif method == KW_OUTPUT:
+                return super(YateCmd, cls).__new__(YateCmdOutput)
+
+            elif method == KW_SETLOCAL:
+                return super(YateCmd, cls).__new__(YateCmdSetLocal)
+
+            elif method == KW_SETLOCALREPLY:
+                return super(YateCmd, cls).__new__(YateCmdSetLocalReply)
+
+            elif method == KW_UNINSTALL:
+                return super(YateCmd, cls).__new__(YateCmdUnInstall)
+
+            elif method == KW_UNINSTALLREPLY:
+                return super(YateCmd, cls).__new__(YateCmdUnInstallReply)
+
+            elif method == KW_UNWATCH:
+                return super(YateCmd, cls).__new__(YateCmdUnWatch)
+
+            elif method == KW_UNWATCHREPLY:
+                return super(YateCmd, cls).__new__(YateCmdUnWatchReply)
+
+            elif method == KW_WATCH:
+                return super(YateCmd, cls).__new__(YateCmdWatch)
+
+            elif method == KW_WATCHREPLY:
+                return super(YateCmd, cls).__new__(YateCmdWatchReply)
+
+            else:
+                raise NotImplementedError(
+                    'Command method "{0}" not implemented'.format(method))
 
     def __init__(self, cmd=None, **kwargs):
         """Init object from command line, YateCmd object or dict"""
         from datetime import datetime
 
-        extras = getattr(self, 'extras', {})
+        # Initialize from a command string
+        if isinstance(cmd, str):
 
-        # Init from another YateCmd object
-        if isinstance(cmd, YateCmd):
+            for param in self.__params__:
 
-            # Copy the attributes
-            attr = cmd.__dict__.copy()
+                # No parameters left
+                if not cmd:
+                    value = ''
 
-            # Update the extra parameters
-            extras.update(attr.pop('extras', {}))
-
-            self.__dict__.update(attr)
-
-        # Init from a command line
-        elif isinstance(cmd, str):
-
-            # Get method from the command line
-            try:
-                self.method, cmd = cmd.split(':', 1)
-            except ValueError:
-                raise SyntaxError('Invalid command: {0}'.format(cmd))
-
-            # Get parameter from the command line
-            for attr in self.attrs():
-
-                # Get next parameter value
-                if ':' in cmd and attr not in ['command', 'extras', 'output']:
-                    value, cmd = cmd.split(':', 1)
-                # Last parameter on the command line
-                elif cmd:
+                # Raw strings
+                elif param in ['original', 'output']:
                     value = cmd
-                    cmd = ''
-                # No parameters left on the command line
-                else:
-                    break
 
-                # Not encoded strings
-                if attr in ['command', 'output']:
-                    setattr(self, attr, value)
+                # Command method, don't downcode
+                elif param == 'method':
+                    value, cmd = cmd.partition(':')[::2]
 
                 # Convert a (true|false) string into a boolean
-                elif attr in ['processed', 'success']:
-                    setattr(self, attr, (True if value == 'true' else False))
+                elif param in ['processed', 'success']:
+                    value, cmd = cmd.partition(':')[::2]
+                    value = value == 'true'
 
                 # Convert a string into a integer
-                elif attr == 'priority':
-                    setattr(self, attr, int(value))
+                elif param == 'priority':
+                    value, cmd = cmd.partition(':')[::2]
+                    if value:
+                        value = int(value)
 
                 # Convert a timestamp string into a datetime object
-                elif attr == 'timestamp':
-                    setattr(self, attr, datetime.fromtimestamp(float(value)))
+                elif param == 'time':
+                    value, cmd = cmd.partition(':')[::2]
+                    if value:
+                        value = datetime.fromtimestamp(int(value))
 
-                # Extra parameters
-                elif attr == 'extras':
+                # Key-value pairs
+                elif param == 'kvp':
 
-                    # Get all remaining parameters
-                    value += cmd
+                    # Copy the instance dictionary or initialize a new one
+                    value = getattr(self, param, {}).copy()
 
-                    # Update the extra parameters with the param-value pairs
-                    extras.update(
-                        ((self.downcode(x), self.downcode(y))
-                         for x, y in (z.split('=', 1)
-                         for z in value.split(':')))
-                    )
+                    # Update the dictionary items
+                    for kvp in cmd.split(':'):
+                        k, v = kvp.partition('=')[::2]
 
-                # Other parameters, decode the string (downcode the characters)
+                        if k:
+                            value.update({downcode(k): downcode(v)})
+
+                # Other parameters, downcode string characters
                 else:
-                    setattr(self, attr, self.downcode(value))
+                    value, cmd = cmd.partition(':')[::2]
+                    value = downcode(value)
 
-        # Update the parameters from the supplied attributes
+                # Save instance attribute
+                setattr(self, param, value)
+
+        # Initialize from another Yate command object
+        elif isinstance(cmd, YateCmd):
+            for param in self.__params__:
+
+                # Update key-value dictionary
+                if param == 'kvp':
+
+                    # Get instance dictionary
+                    kvp = getattr(self, param, {})
+
+                    # Update the instance dictionary
+                    kvp.update(getattr(cmd, param, {}))
+
+                    # Save the instance dictionary
+                    setattr(self, param, kvp)
+
+                # Copy parameter
+                else:
+                    setattr(self, param, getattr(cmd, param, ''))
+
         if kwargs:
+            for param in self.__params__:
 
-            # Update the extra parameters
-            extras.update(kwargs.pop('extras', {}))
+                # Update key-value dictionary
+                if param == 'kvp':
 
-            # Update the attributes
-            self.__dict__.update(**kwargs)
+                    # Get instance dictionary
+                    kvp = getattr(self, param, {})
 
-        # Store the extra parameters
-        self.extras = extras
+                    # Update the instance dictionary
+                    kvp.update(kwargs.get(param, {}))
 
-        # Command identifier for queue processing
-        self.key = getattr(self, 'name', id(self))
+                    # Save the instance dictionary
+                    setattr(self, param, kvp)
+
+                # Copy parameter
+                else:
+                    value = kwargs.get(param, '')
+                    if value:
+                        setattr(self, param, kwargs.get(param, ''))
 
     def __call__(self, reply=None):
         """Handle the command reply"""
 
         # Message command does not support success indication
-        if reply.method == KW_MESSAGEREPLY:
+        if reply.__method__ == KW_MESSAGEREPLY:
             return True
-        # Command executed successfully
-        elif getattr(reply, 'success', False):
-            return True
-        # Error executing the command
+
+        # Return command execution result
         else:
-            return False
+            return getattr(reply, 'success', False)
 
     def __repr__(self):
-        method = getattr(self, 'method', None)
-
-        if method in [KW_MESSAGE, KW_MESSAGEREPLY]:
-            key = getattr(self, 'id', id(self))
-        else:
-            key = getattr(self, 'name', id(self))
-
-        if method == KW_ERROR:
-            method = 'error'
-        elif method:
-            method = method[3:]
-        else:
-            method = 'blank'
-
-        return '<YateCmd {0} {1}>'.format(method, key)
+        return '{0}(\'{1}\')'.format(self.__class__.__name__, self)
 
     def __str__(self):
         """Convert object into a command line"""
@@ -165,215 +214,231 @@ class YateCmd(object):
         """Convert object into a command line"""
         from datetime import datetime
 
-        # In    it a new list to store the command parameters
-        reply = [self.method]
+        # Create a empty list to store the command parameters
+        cmd = [self.__method__]
 
-        # Get the command parameters from the object attributes
-        for attr in self.attrs():
+        # Get the command parameters
+        for param in self.__params__:
+
+            # Method already defined
+            if param == 'method':
+                continue
 
             # Not encoded parameters, just convert to string
-            if attr in ['command', 'output']:
-                reply.append(getattr(self, attr, '') or '')
+            elif param in ['original', 'output']:
+                value = getattr(self, param, '')
 
             # Convert a boolean into a (true|false) string (defaults to false)
-            elif attr in ['processed', 'success']:
-                reply.append('true' if getattr(self, attr, False) else 'false')
+            elif param in ['processed', 'success']:
+                value = 'true' if getattr(self, param, False) else 'false'
 
             # Convert a datetime object into a timestamp (defaults to now)
-            elif attr == 'timestamp':
-                reply.append(getattr(self, attr, datetime.now()).strftime('%s'))
-
-            # Extra parameters
-            elif attr == 'extras':
-                for attr, value in getattr(self, attr, {}).iteritems():
-                    reply.append(
-                        '='.join((self.upcode(attr), self.upcode(value))))
-
-            # Other parameters, encode the string (upcode the characters)
-            else:
-                reply.append(self.upcode(getattr(self, attr, '') or ''))
-
-        return ':'.join(reply).rstrip(':')
-
-    def attrs(self):
-        try:
-            return KW_MAP[self.method]
-        except KeyError:
-            raise NotImplementedError(
-                'Method "{0}" not implemented'.format(self.method))
-        except AttributeError:
-            raise SyntaxError('Method not defined')
-
-    @staticmethod
-    def downcode(string, upcoded=False):
-        """Decode Yate upcoded strings"""
-
-        # Init empty list
-        result = []
-
-        for c in str(string):
-            # Check if this char is upcoded
-            if upcoded:
-                # Next char is not upcoded
-                upcoded = False
-
-                if c == '%':
-                    result.append('%')
+            elif param == 'time':
+                value = getattr(self, param, '')
+                if isinstance(value, datetime):
+                    value = value.strftime('%s')
                 else:
-                    result.append(chr(ord(c) - 64))
+                    value = datetime.now().strftime('%s')
+
+            # Key-value pairs
+            elif param == 'kvp':
+                value = ':'.join((
+                    '='.join((upcode(k), upcode(v)))
+                    for k, v in self.kvp.iteritems()
+                ))
+
+            # Other parameters, downcode string characters
             else:
-                if c == '%':
-                    upcoded = True
-                else:
-                    result.append(c)
+                value = upcode(getattr(self, param, ''))
 
-        return ''.join(result)
+            # Append parameter value to the list
+            cmd.append(value)
 
-    @staticmethod
-    def upcode(string, special=':'):
-        """Encode string into Yate upcoded"""
-
-        # Init empty list
-        result = []
-
-        for c in str(string):
-            if ord(c) < 32 or c in special:
-                result.append('%{0:c}'.format(ord(c) + 64))
-            elif c == '%':
-                result.append('%%')
-            else:
-                result.append(c)
-
-        return ''.join(result)
+        return ':'.join(cmd).rstrip(':')
 
 
 class YateCmdConnect(YateCmd):
     """Yate connect command"""
 
-    def __init__(self, role, id=None, type=None, method=KW_CONNECT):
+    __method__ = KW_CONNECT
+    __params__ = ('method', 'role', 'id', 'type')
 
-        # Parameters
-        kwargs = locals().copy()
-        kwargs.pop('self')
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
 
-        # Run the init code
-        YateCmd.__init__(self, **kwargs)
+        self.__id__ = 'connect/{0}'.format(self.role)
+
+
+class YateCmdError(YateCmd):
+    """Yate output command"""
+
+    __method__ = KW_ERROR
+    __params__ = ('method', 'original',)
+
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
+
+        self.__id__ = 'error/{0}'.format(self.original)
 
 
 class YateCmdInstall(YateCmd):
     """Yate install command"""
 
-    def __init__(self, name, priority=None, filtername=None, filtervalue=None,
-                 method=KW_INSTALL):
+    __method__ = KW_INSTALL
+    __params__ = ('method', 'priority', 'name', 'filter_name', 'filter_value')
 
-        # Parameters
-        kwargs = locals().copy()
-        kwargs.pop('self')
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
 
-        # Run the init code
-        YateCmd.__init__(self, **kwargs)
+        self.__id__ = 'install/{0}'.format(self.name)
+
+
+class YateCmdInstallReply(YateCmd):
+    """Yate install reply command"""
+
+    __method__ = KW_INSTALLREPLY
+    __params__ = ('method', 'priority', 'name', 'success')
+
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
+
+        self.__id__ = 'install/{0}'.format(self.name)
 
 
 class YateCmdMessage(YateCmd):
     """Yate message command"""
 
-    def __init__(self, name, id=None, timestamp=None, retval=None, extras=None,
-                 method=KW_MESSAGE):
+    __method__ = KW_MESSAGE
+    __params__ = ('method', 'id', 'time', 'name', 'retvalue', 'kvp')
 
-        if not id:
-            id = id(self)
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
 
-        if not timestamp:
-            from datetime import datetime
-            timestamp = datetime.now()
+        # Generate a random ID if not already defined
+        if not self.id:
+            self.id = id(self)
 
-        # Parameters
-        kwargs = locals().copy()
-        kwargs.pop('self')
-
-        # Run the init code
-        YateCmd.__init__(self, **kwargs)
+        self.__id__ = 'message/{0}'.format(self.id)
 
 
 class YateCmdMessageReply(YateCmd):
     """Yate message reply command"""
 
-    def __init__(self, cmd, method=KW_MESSAGEREPLY, **kwargs):
+    __method__ = KW_MESSAGEREPLY
+    __params__ = ('method', 'id', 'processed', 'name', 'retvalue', 'kvp')
 
-        # Parameters
-        if kwargs:
-            kwargs.update(locals())
-        else:
-            kwargs = locals().copy()
-        kwargs.pop('self')
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
 
-        # Run the init code
-        YateCmd.__init__(self, **kwargs)
+        self.__id__ = 'message/{0}'.format(self.id)
 
 
 class YateCmdOutput(YateCmd):
     """Yate output command"""
 
-    def __init__(self, output, method=KW_OUTPUT):
+    __method__ = KW_OUTPUT
+    __params__ = ('method', 'output',)
 
-        # Parameters
-        kwargs = locals().copy()
-        kwargs.pop('self')
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
 
-        # Run the init code
-        YateCmd.__init__(self, **kwargs)
+        self.__id__ = 'output/{0}'.format(self.output)
 
 
 class YateCmdSetLocal(YateCmd):
     """Yate setlocal command"""
 
-    def __init__(self, name, value, method=KW_SETLOCAL):
+    __method__ = KW_SETLOCAL
+    __params__ = ('method', 'name', 'value')
 
-        # Parameters
-        kwargs = locals().copy()
-        kwargs.pop('self')
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
 
-        # Run the init code
-        YateCmd.__init__(self, **kwargs)
+        self.__id__ = 'setlocal/{0}'.format(self.name)
+
+
+class YateCmdSetLocalReply(YateCmd):
+    """Yate setlocal reply command"""
+
+    __method__ = KW_SETLOCALREPLY
+    __params__ = ('method', 'name', 'value', 'success')
+
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
+
+        self.__id__ = 'setlocal/{0}'.format(self.name)
 
 
 class YateCmdUnInstall(YateCmd):
     """Yate uninstall command"""
 
-    def __init__(self, name, method=KW_UNINSTALL):
+    __method__ = KW_UNINSTALL
+    __params__ = ('method', 'name',)
 
-        # Parameters
-        kwargs = locals().copy()
-        kwargs.pop('self')
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
 
-        # Run the init code
-        YateCmd.__init__(self, **kwargs)
+        self.__id__ = 'uninstall/{0}'.format(self.name)
+
+
+class YateCmdUnInstallReply(YateCmd):
+    """Yate uninstall reply command"""
+
+    __method__ = KW_UNINSTALLREPLY
+    __params__ = ('method', 'priority', 'name', 'success')
+
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
+
+        self.__id__ = 'uninstall/{0}'.format(self.name)
 
 
 class YateCmdUnWatch(YateCmd):
     """Yate unwatch command"""
 
-    def __init__(self, name,  method=KW_UNWATCH):
+    __method__ = KW_UNWATCH
+    __params__ = ('method', 'name',)
 
-        # Parameters
-        kwargs = locals().copy()
-        kwargs.pop('self')
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
 
-        # Run the init code
-        YateCmd.__init__(self, **kwargs)
+        self.__id__ = 'unwatch/{0}'.format(self.name)
+
+
+class YateCmdUnWatchReply(YateCmd):
+    """Yate unwatch reply command"""
+
+    __method__ = KW_UNWATCHREPLY
+    __params__ = ('method', 'name', 'success')
+
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
+
+        self.__id__ = 'unwatch/{0}'.format(self.name)
 
 
 class YateCmdWatch(YateCmd):
     """Yate watch command"""
 
-    def __init__(self, name, method=KW_WATCH):
+    __method__ = KW_WATCH
+    __params__ = ('method', 'name',)
 
-        # Parameters
-        kwargs = locals().copy()
-        kwargs.pop('self')
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
 
-        # Run the init code
-        YateCmd.__init__(self, **kwargs)
+        self.__id__ = 'watch/{0}'.format(self.name)
+
+
+class YateCmdWatchReply(YateCmd):
+    """Yate watch reply command"""
+
+    __method__ = KW_WATCHREPLY
+    __params__ = ('method', 'name', 'success')
+
+    def __init__(self, cmd=None, **kwargs):
+        YateCmd.__init__(self, cmd=cmd, **kwargs)
+
+        self.__id__ = 'watch/{0}'.format(self.name)
 
 
 class YateExtModule(object):
@@ -417,17 +482,17 @@ class YateExtModule(object):
         """Command input handler"""
 
         # New message
-        if cmd.method == KW_MESSAGE:
+        if cmd.__method__ == KW_MESSAGE:
 
             # Process and send reply
             self.send(self.handle_message(cmd))
 
         # Command error
-        elif cmd.method == KW_ERROR:
-            self.logger.error('Invalid command: {0}'.format(cmd.command))
+        elif cmd.__method__ == KW_ERROR:
+            self.logger.error('Invalid command: {0}'.format(cmd.original))
 
             # Try to remove original message from the queue
-            self.queue_pop(YateCmd(cmd.command))
+            self.queue_pop(YateCmd(cmd.original))
 
         # Command reply
         else:
@@ -458,31 +523,31 @@ class YateExtModule(object):
         self.logger.debug('Running startup hook')
 
         # Set local variables
-        self.send(YateCmdSetLocal('restart', 'true'))
+        self.send(YateCmdSetLocal(name='restart', value='true'))
 
         # Register hooks
-        self.send(YateCmdWatch('engine.timer'))
+        self.send(YateCmdWatch(name='engine.timer'))
 
     def on_stop(self):
         """Exit hook"""
         self.logger.debug('Running exit hook')
 
         # Set local variables
-        self.send(YateCmdSetLocal('restart', 'false'))
+        self.send(YateCmdSetLocal(name='restart', value='false'))
 
         # Unregister hooks
-        self.send(YateCmdUnWatch('engine.timer'))
+        self.send(YateCmdUnWatch(name='engine.timer'))
 
     def queue_pop(self, cmd):
         """Retrieve a command from the queue"""
 
         # Remove the command from the queue if present
-        return self.queue.pop(repr(cmd), {})
+        return self.queue.pop(cmd.__id__, None)
 
     def queue_push(self, cmd):
         """Insert a command into the queue"""
 
-        self.queue[repr(cmd)] = cmd
+        self.queue.update({cmd.__id__: cmd})
 
     def run(self):
         """Main loop"""
@@ -512,8 +577,8 @@ class YateExtModule(object):
         """Command output handler"""
 
         # Store command into the queue so we can handle the reply
-        if cmd.method in [KW_INSTALL, KW_MESSAGE, KW_SETLOCAL,
-                          KW_UNINSTALL, KW_UNWATCH, KW_WATCH]:
+        if cmd.__method__ in [KW_INSTALL, KW_MESSAGE, KW_SETLOCAL,
+                              KW_UNINSTALL, KW_UNWATCH, KW_WATCH]:
             self.queue_push(cmd)
 
         # Send the command
@@ -526,15 +591,46 @@ class YateSocketClient(YateExtModule):
     pass
 
 
-if __name__ == '__main__':
-    from optparse import OptionParser
+def downcode(string):
+    """Decode Yate upcoded strings"""
 
-    parser = OptionParser()
-    parser.add_option('-d', '--debug', action='store_true',
-                      help='increase logging verbosity')
-    parser.add_option('-q', '--quiet', action='store_true',
-                      help='reduce the logging verbosity')
-    parser.add_option('-n', '--name', default=__file__,
-                      help='name used for logging')
+    # Init empty list
+    result = []
 
-    YateExtModule(**vars(parser.parse_args()[0])).run()
+    # First char is not upcoded
+    upcoded = False
+
+    for c in str(string):
+        # Check if this char is upcoded
+        if upcoded:
+            # Next char is not upcoded
+            upcoded = False
+
+            if c == '%':
+                result.append('%')
+            else:
+                result.append(chr(ord(c) - 64))
+        else:
+            if c == '%':
+                upcoded = True
+            else:
+                result.append(c)
+
+    return ''.join(result)
+
+
+def upcode(string, special=':'):
+    """Encode string into Yate upcoded"""
+
+    # Init empty list
+    result = []
+
+    for c in str(string):
+        if ord(c) < 32 or c in special:
+            result.append('%{0:c}'.format(ord(c) + 64))
+        elif c == '%':
+            result.append('%%')
+        else:
+            result.append(c)
+
+    return ''.join(result)

@@ -2,22 +2,26 @@
 import libyate
 
 
-class myapp(libyate.YateExtModule):
+class my_app(libyate.YateExtModule):
     def on_start(self):
-        self.send(libyate.YateCmdSetLocal('testing', 'true'))
-        self.send(libyate.YateCmdInstall('test', 50))
-        self.send(libyate.YateCmdInstall('engine.timer'))
-        self.send(libyate.YateCmdWatch('call.route'))
-        self.send(libyate.YateCmdMessage('app.job',
-                                         id='myapp55251',
-                                         extras={
-                                             'job': 'cleanup',
-                                             'done': '75%',
-                                             'path': '/bin:/usr/bin'
-                                         }))
-        self.send(libyate.YateCmdUnInstall('test'))
-        self.send(libyate.YateCmdUnInstall('engine.timer'))
-        self.send(libyate.YateCmdUnWatch('call.route'))
+        self.send(libyate.YateCmdSetLocal(
+            name='testing', value='true'))
+        self.send(libyate.YateCmdInstall(
+            name='test', priority=50))
+        self.send(libyate.YateCmdInstall(
+            name='engine.timer'))
+        self.send(libyate.YateCmdWatch(
+            name='call.route'))
+        self.send(libyate.YateCmdMessage(
+            name='app.job', id='myapp55251', kvp={
+                'job': 'cleanup', 'done': '75%', 'path': '/bin:/usr/bin'
+            }))
+        self.send(libyate.YateCmdUnInstall(
+            name='test'))
+        self.send(libyate.YateCmdUnInstall(
+            name='engine.timer'))
+        self.send(libyate.YateCmdUnWatch(
+            name='call.route'))
 
     def on_stop(self):
         pass
@@ -33,4 +37,4 @@ parser.add_option('-q', '--quiet', action='store_true',
 parser.add_option('-n', '--name', default=__file__,
                   help='name used for logging')
 
-myapp(**vars(parser.parse_args()[0])).run()
+my_app(**vars(parser.parse_args()[0])).run()
