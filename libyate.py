@@ -1,5 +1,20 @@
 """
 libyate.py - Python library for developing Yate external modules
+
+
+Copyright (c) 2013 Andre Sencioles Vitorio Oliveira <andre@bcp.net.br>
+
+Permission to use, copy, modify, and distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 """
 
 # Keywords definition
@@ -171,6 +186,19 @@ class YateCmd(object):
                 else:
                     setattr(self, param, getattr(cmd, param, ''))
 
+        # Initialize empty parameters
+        elif cmd is None:
+            for param in self.__params__:
+                if param == 'kvp':
+                    setattr(self, param, {})
+                else:
+                    setattr(self, param, '')
+
+        # Invalid parameter
+        else:
+            raise TypeError('Invalid type for "cmd": {0}'.format(type(cmd)))
+
+        # Override parameters from kwargs
         if kwargs:
             for param in self.__params__:
 
@@ -424,7 +452,7 @@ class YateCmdWatch(YateCmd):
     """Yate watch command"""
 
     __method__ = KW_WATCH
-    __params__ = ('method', 'name',)
+    __params__ = ('method', 'name')
 
     def __init__(self, cmd=None, **kwargs):
         YateCmd.__init__(self, cmd=cmd, **kwargs)
@@ -447,8 +475,14 @@ class YateCmdWatchReply(YateCmd):
 class YateExtModule(object):
     """Yate external module"""
 
+    # class attributes
+    debug = False
+    logger = None
+    name = None
+    queue = {}
+
     def __init__(self, name=__name__, debug=False, quiet=False):
-        """Initialize the class, optionally overriding the handlers map"""
+        """Initialize the class"""
         import logging
 
         logging.basicConfig(**{
@@ -461,7 +495,6 @@ class YateExtModule(object):
         self.name = name
         self.debug = debug
         self.logger = logging.getLogger(self.name)
-        self.queue = {}
 
     def _read(self):
         """Read commands from stdin"""
@@ -646,7 +679,7 @@ class YateExtModule(object):
 
 class YateSocketClient(YateExtModule):
     """Socket connected external module"""
-    #TODO: implement SocketClient class
+    # TODO: implement SocketClient class
     pass
 
 
