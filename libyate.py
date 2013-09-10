@@ -320,6 +320,9 @@ class YateCmdMessage(YateCmd):
 
         self.__id__ = 'message/{0}'.format(self.id)
 
+    def reply(self, **kwargs):
+        return YateCmdMessageReply(self, **kwargs)
+
 
 class YateCmdMessageReply(YateCmd):
     """Yate message reply command"""
@@ -478,6 +481,13 @@ class YateExtModule(object):
         print(cmd)
         sys.stdout.flush()
 
+    def connect(self, role, **kwargs):
+        """Attach to the socket interface"""
+
+        self.logger.debug('Connecting: "{0}"'.format(role))
+
+        self.send(YateCmdConnect(role=role, **kwargs))
+
     def handle_input(self, cmd):
         """Command input handler"""
 
@@ -502,7 +512,7 @@ class YateExtModule(object):
         """Stub message handler"""
 
         # Reply without processing
-        return YateCmdMessageReply(cmd)
+        return cmd.reply()
 
     def handle_reply(self, reply):
         """Command reply handler"""
@@ -518,25 +528,46 @@ class YateExtModule(object):
             else:
                 self.logger.error('Error executing command: {0}'.format(cmd))
 
+    def install(self, name, **kwargs):
+        """Install message handler"""
+
+        self.logger.debug('Installing handler for "{0}"'.format(name))
+
+        self.send(YateCmdInstall(name=name, **kwargs))
+
+    def message(self, name, **kwargs):
+        """Send message to Yate"""
+
+        self.logger.debug('Sending message: "{0}"'.format(name))
+
+        self.send(YateCmdMessage(name=name, **kwargs))
+
     def on_start(self):
         """Startup hook"""
         self.logger.debug('Running startup hook')
 
         # Set local variables
-        self.send(YateCmdSetLocal(name='restart', value='true'))
+        self.set_local('restart', 'true')
 
         # Register hooks
-        self.send(YateCmdWatch(name='engine.timer'))
+        self.watch('engine.timer')
 
     def on_stop(self):
         """Exit hook"""
         self.logger.debug('Running exit hook')
 
         # Set local variables
-        self.send(YateCmdSetLocal(name='restart', value='false'))
+        self.set_local('restart', 'false')
 
         # Unregister hooks
-        self.send(YateCmdUnWatch(name='engine.timer'))
+        self.unwatch('engine.timer')
+
+    def output(self, output):
+        """Send message to Yate"""
+
+        self.logger.debug('Sending output: "{0}"'.format(output))
+
+        self.send(YateCmdMessage(output=output))
 
     def queue_pop(self, cmd):
         """Retrieve a command from the queue"""
@@ -583,6 +614,34 @@ class YateExtModule(object):
 
         # Send the command
         self._write(cmd)
+
+    def set_local(self, name, value):
+        """Set module local parameters"""
+
+        self.logger.debug('Setting parameter "{0}": "{1}"'.format(name, value))
+
+        self.send(YateCmdSetLocal(name=name, value=value))
+
+    def uninstall(self, name):
+        """Uninstall message handler"""
+
+        self.logger.debug('Uninstalling handler for "{0}"'.format(name))
+
+        self.send(YateCmdUnInstall(name=name))
+
+    def unwatch(self, name):
+        """Uninstall message watcher"""
+
+        self.logger.debug('Uninstalling watcher for "{0}"'.format(name))
+
+        self.send(YateCmdUnWatch(name=name))
+
+    def watch(self, name):
+        """Install message watcher"""
+
+        self.logger.debug('Installing watcher for "{0}"'.format(name))
+
+        self.send(YateCmdUnWatch(name=name))
 
 
 class YateSocketClient(YateExtModule):

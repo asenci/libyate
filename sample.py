@@ -4,24 +4,19 @@ import libyate
 
 class my_app(libyate.YateExtModule):
     def on_start(self):
-        self.send(libyate.YateCmdSetLocal(
-            name='testing', value='true'))
-        self.send(libyate.YateCmdInstall(
-            name='test', priority=50))
-        self.send(libyate.YateCmdInstall(
-            name='engine.timer'))
-        self.send(libyate.YateCmdWatch(
-            name='call.route'))
-        self.send(libyate.YateCmdMessage(
-            name='app.job', id='myapp55251', kvp={
+        self.set_local('testing', 'true')
+        self.install('test', priority=50)
+        self.install('engine.timer')
+        self.watch('call.route')
+        self.message(
+            name='app.job',
+            id='myapp55251',
+            kvp={
                 'job': 'cleanup', 'done': '75%', 'path': '/bin:/usr/bin'
-            }))
-        self.send(libyate.YateCmdUnInstall(
-            name='test'))
-        self.send(libyate.YateCmdUnInstall(
-            name='engine.timer'))
-        self.send(libyate.YateCmdUnWatch(
-            name='call.route'))
+            })
+        self.uninstall('test')
+        self.uninstall('engine.timer')
+        self.unwatch('call.route')
 
     def on_stop(self):
         pass
