@@ -38,7 +38,7 @@ KW_WATCHREPLY = '%%<watch'
 class YateCmd(object):
     """Object representing an Yate command"""
 
-    # Internal attributes
+    # class attributes
     __id__ = ''
     __method__ = ''
     __params__ = ()
@@ -288,6 +288,7 @@ class YateCmd(object):
 class YateCmdConnect(YateCmd):
     """Yate connect command"""
 
+    # class attributes
     __method__ = KW_CONNECT
     __params__ = ('method', 'role', 'id', 'type')
 
@@ -300,8 +301,9 @@ class YateCmdConnect(YateCmd):
 class YateCmdError(YateCmd):
     """Yate output command"""
 
+    # class attributes
     __method__ = KW_ERROR
-    __params__ = ('method', 'original',)
+    __params__ = ('method', 'original')
 
     def __init__(self, cmd=None, **kwargs):
         YateCmd.__init__(self, cmd=cmd, **kwargs)
@@ -312,6 +314,7 @@ class YateCmdError(YateCmd):
 class YateCmdInstall(YateCmd):
     """Yate install command"""
 
+    # class attributes
     __method__ = KW_INSTALL
     __params__ = ('method', 'priority', 'name', 'filter_name', 'filter_value')
 
@@ -324,6 +327,7 @@ class YateCmdInstall(YateCmd):
 class YateCmdInstallReply(YateCmd):
     """Yate install reply command"""
 
+    # class attributes
     __method__ = KW_INSTALLREPLY
     __params__ = ('method', 'priority', 'name', 'success')
 
@@ -336,6 +340,7 @@ class YateCmdInstallReply(YateCmd):
 class YateCmdMessage(YateCmd):
     """Yate message command"""
 
+    # class attributes
     __method__ = KW_MESSAGE
     __params__ = ('method', 'id', 'time', 'name', 'retvalue', 'kvp')
 
@@ -355,6 +360,7 @@ class YateCmdMessage(YateCmd):
 class YateCmdMessageReply(YateCmd):
     """Yate message reply command"""
 
+    # class attributes
     __method__ = KW_MESSAGEREPLY
     __params__ = ('method', 'id', 'processed', 'name', 'retvalue', 'kvp')
 
@@ -367,8 +373,9 @@ class YateCmdMessageReply(YateCmd):
 class YateCmdOutput(YateCmd):
     """Yate output command"""
 
+    # class attributes
     __method__ = KW_OUTPUT
-    __params__ = ('method', 'output',)
+    __params__ = ('method', 'output')
 
     def __init__(self, cmd=None, **kwargs):
         YateCmd.__init__(self, cmd=cmd, **kwargs)
@@ -379,6 +386,7 @@ class YateCmdOutput(YateCmd):
 class YateCmdSetLocal(YateCmd):
     """Yate setlocal command"""
 
+    # class attributes
     __method__ = KW_SETLOCAL
     __params__ = ('method', 'name', 'value')
 
@@ -391,6 +399,7 @@ class YateCmdSetLocal(YateCmd):
 class YateCmdSetLocalReply(YateCmd):
     """Yate setlocal reply command"""
 
+    # class attributes
     __method__ = KW_SETLOCALREPLY
     __params__ = ('method', 'name', 'value', 'success')
 
@@ -403,8 +412,9 @@ class YateCmdSetLocalReply(YateCmd):
 class YateCmdUnInstall(YateCmd):
     """Yate uninstall command"""
 
+    # class attributes
     __method__ = KW_UNINSTALL
-    __params__ = ('method', 'name',)
+    __params__ = ('method', 'name')
 
     def __init__(self, cmd=None, **kwargs):
         YateCmd.__init__(self, cmd=cmd, **kwargs)
@@ -415,6 +425,7 @@ class YateCmdUnInstall(YateCmd):
 class YateCmdUnInstallReply(YateCmd):
     """Yate uninstall reply command"""
 
+    # class attributes
     __method__ = KW_UNINSTALLREPLY
     __params__ = ('method', 'priority', 'name', 'success')
 
@@ -427,8 +438,9 @@ class YateCmdUnInstallReply(YateCmd):
 class YateCmdUnWatch(YateCmd):
     """Yate unwatch command"""
 
+    # class attributes
     __method__ = KW_UNWATCH
-    __params__ = ('method', 'name',)
+    __params__ = ('method', 'name')
 
     def __init__(self, cmd=None, **kwargs):
         YateCmd.__init__(self, cmd=cmd, **kwargs)
@@ -439,6 +451,7 @@ class YateCmdUnWatch(YateCmd):
 class YateCmdUnWatchReply(YateCmd):
     """Yate unwatch reply command"""
 
+    # class attributes
     __method__ = KW_UNWATCHREPLY
     __params__ = ('method', 'name', 'success')
 
@@ -451,6 +464,7 @@ class YateCmdUnWatchReply(YateCmd):
 class YateCmdWatch(YateCmd):
     """Yate watch command"""
 
+    # class attributes
     __method__ = KW_WATCH
     __params__ = ('method', 'name')
 
@@ -463,6 +477,7 @@ class YateCmdWatch(YateCmd):
 class YateCmdWatchReply(YateCmd):
     """Yate watch reply command"""
 
+    # class attributes
     __method__ = KW_WATCHREPLY
     __params__ = ('method', 'name', 'success')
 
@@ -475,210 +490,357 @@ class YateCmdWatchReply(YateCmd):
 class YateExtModule(object):
     """Yate external module"""
 
-    # class attributes
-    debug = False
-    logger = None
-    name = None
-    queue = {}
-
     def __init__(self, name=__name__, debug=False, quiet=False):
         """Initialize the class"""
+
         import logging
+        from Queue import Queue
+
+        log_format = \
+            '%(asctime)s <%(name)s[%(threadName)s]:%(levelname)s> %(message)s'
 
         logging.basicConfig(**{
             'level': (logging.DEBUG if debug else
                       logging.WARN if quiet else
                       logging.INFO),
-            'format': '%(created)f <%(name)s:%(levelname)s> %(message)s',
+            'format': log_format,
         })
 
+        # Logger instance
+        self.logger = logging.getLogger(name)
+
+        # Instance name
         self.name = name
-        self.debug = debug
-        self.logger = logging.getLogger(self.name)
 
-    def _read(self):
-        """Read commands from stdin"""
+        # Command queue
+        self.cmd_queue = {}
 
-        line = raw_input()
+        # Input queue
+        self.in_queue = Queue()
 
-        self.logger.debug('Received: {0}'.format(line))
-
-        return YateCmd(line)
-
-    def _write(self, cmd):
-        """Write commands to stdout"""
-        import sys
-
-        self.logger.debug('Sending: {0}'.format(cmd))
-
-        print(cmd)
-        sys.stdout.flush()
+        # Output queue
+        self.out_queue = Queue()
 
     def connect(self, role, **kwargs):
         """Attach to the socket interface"""
 
         self.logger.debug('Connecting: "{0}"'.format(role))
 
-        self.send(YateCmdConnect(role=role, **kwargs))
+        self.out_queue.put(YateCmdConnect(role=role, **kwargs))
 
-    def handle_input(self, cmd):
-        """Command input handler"""
+    def handle_command(self, cmd):
+        """Inbound command handler"""
 
-        # New message
-        if cmd.__method__ == KW_MESSAGE:
+        self.logger.debug('Processing command: {0}'.format(cmd))
+        try:
+            # Reply
+            if cmd.__method__.startswith('%%<'):
 
-            # Process and send reply
-            self.send(self.handle_message(cmd))
+                # Find initial command
+                orig = self.cmd_queue.pop(cmd.__id__)
 
-        # Command error
-        elif cmd.__method__ == KW_ERROR:
-            self.logger.error('Invalid command: {0}'.format(cmd.original))
+                if orig:
+                    if orig(cmd):
+                        self.logger.debug(
+                            'Command executed successfully: {0}'.format(orig))
+                    else:
+                        self.logger.error(
+                            'Error executing command: {0}'.format(orig))
+                else:
+                    self.logger.debug(
+                        'Original command not fount for reply: {0}'
+                        .format(cmd))
 
-            # Try to remove original message from the queue
-            self.queue_pop(YateCmd(cmd.original))
+            # Error
+            elif cmd.__method__ == KW_ERROR:
+                self.logger.error(
+                    'Invalid command: {0}'.format(cmd.original))
 
-        # Command reply
-        else:
-            self.handle_reply(cmd)
+                # Try to remove original message from the queue
+                self.cmd_queue.pop(YateCmd(cmd.original).__id__)
 
-    def handle_message(self, cmd):
-        """Stub message handler"""
-
-        # Reply without processing
-        return cmd.reply()
-
-    def handle_reply(self, reply):
-        """Command reply handler"""
-
-        # Retrieve the command from the queue
-        cmd = self.queue_pop(reply)
-
-        if cmd:
-            # Send the reply to the command instance
-            if cmd(reply):
+            # New message
+            elif cmd.__method__ == KW_MESSAGE:
                 self.logger.debug(
-                    'Command executed successfully: {0}'.format(cmd))
-            else:
-                self.logger.error('Error executing command: {0}'.format(cmd))
+                    'No action defined, replying without processing')
+                self.out_queue.put(cmd.reply())
+
+        # Command not found on command queue dictionary
+        except KeyError as e:
+            self.logger.error('ID not found on command queue: {0}'.format(e))
+
+        # Log exceptions
+        except Exception as e:
+            self.logger.error(e)
+
+    def handle_input(self, queue):
+        """Input queue handler"""
+
+        from threading import Thread
+        from time import sleep
+
+        self.logger.info('Starting')
+
+        # Initialize thread list
+        handler_list = []
+
+        # Initial state
+        running = True
+
+        # Main loop
+        while running:
+            try:
+                # Get next command from the queue
+                cmd = queue.get()
+                self.logger.debug(
+                    'Received command: {0}'.format(cmd))
+
+                # CLeanup thread list
+                while running:
+
+                    # Remove finished threads
+                    for i, t in enumerate(handler_list):
+                        if not t.is_alive():
+                            handler_list.pop(i)
+                            self.logger.debug(
+                                'Removed finished thread: {0}'.format(t.name))
+
+                    # Command defined
+                    if cmd:
+
+                        # Start a new handler thread
+                        t = Thread(
+                            target=self.handle_command,
+                            args=(cmd,),
+                            name=cmd.__id__,
+                        )
+                        self.logger.debug(
+                            'Starting handler: {0}'.format(t.name))
+                        t.start()
+
+                        # Append thread to the list
+                        handler_list.append(t)
+
+                        # Stop cleanup
+                        break
+
+                    # Handler list not empty
+                    elif handler_list:
+
+                        # Wait for threads to finish
+                        sleep(0.1)
+
+                    # Command not defined and handler list empty
+                    else:
+
+                        # Start shutdown sequence
+                        running = False
+
+            # Log exceptions
+            except Exception as e:
+                self.logger.error(e)
+
+        self.logger.info('Finished')
+
+    def handle_output(self, queue):
+        """Output queue handler"""
+
+        import sys
+
+        self.logger.info('Starting')
+
+        # Initial state
+        running = True
+
+        # Main loop
+        while running:
+
+            try:
+                # Get next command from the queue
+                cmd = queue.get()
+                self.logger.debug(
+                    'Received command: {0}'.format(cmd))
+
+                # Command defined
+                if cmd:
+
+                    # Send command to the engine
+                    self.logger.debug('Sending: {0}'.format(cmd))
+                    sys.stdout.write('{0}\n'.format(cmd))
+
+                    # Flush buffer
+                    sys.stdout.flush()
+
+                # Command not defined
+                else:
+
+                    # Start shutdown sequence
+                    running = False
+
+            # Log exceptions
+            except Exception as e:
+                self.logger.error(e)
+
+        self.logger.info('Finished')
+
+    def handle_start(self):
+        """Module startup handler"""
+
+        self.logger.debug('Module startup')
+
+    def handle_stop(self):
+        """Module shutdown handler"""
+
+        self.logger.debug('Module shutdown')
 
     def install(self, name, **kwargs):
         """Install message handler"""
 
         self.logger.debug('Installing handler for "{0}"'.format(name))
 
-        self.send(YateCmdInstall(name=name, **kwargs))
+        cmd = YateCmdInstall(name=name, **kwargs)
+
+        self.cmd_queue.update({cmd.__id__: cmd})
+        self.out_queue.put(cmd)
 
     def message(self, name, **kwargs):
         """Send message to Yate"""
 
         self.logger.debug('Sending message: "{0}"'.format(name))
 
-        self.send(YateCmdMessage(name=name, **kwargs))
+        cmd = YateCmdMessage(name=name, **kwargs)
 
-    def on_start(self):
-        """Startup hook"""
-        self.logger.debug('Running startup hook')
-
-        # Set local variables
-        self.set_local('restart', 'true')
-
-        # Register hooks
-        self.watch('engine.timer')
-
-    def on_stop(self):
-        """Exit hook"""
-        self.logger.debug('Running exit hook')
-
-        # Set local variables
-        self.set_local('restart', 'false')
-
-        # Unregister hooks
-        self.unwatch('engine.timer')
+        self.cmd_queue.update({cmd.__id__: cmd})
+        self.out_queue.put(cmd)
 
     def output(self, output):
         """Send message to Yate"""
 
         self.logger.debug('Sending output: "{0}"'.format(output))
 
-        self.send(YateCmdMessage(output=output))
-
-    def queue_pop(self, cmd):
-        """Retrieve a command from the queue"""
-
-        # Remove the command from the queue if present
-        return self.queue.pop(cmd.__id__, None)
-
-    def queue_push(self, cmd):
-        """Insert a command into the queue"""
-
-        self.queue.update({cmd.__id__: cmd})
+        self.out_queue.put(YateCmdOutput(output=output))
 
     def run(self):
-        """Main loop"""
-        self.logger.debug('Loading module')
-        self.on_start()
+        """Start processing commands"""
 
+        import sys
+        from threading import Thread
+
+        self.logger.info('Loading module')
+
+        # Initial state
+        running = True
+
+        # Start output queue handler
+        self.logger.debug('Starting output queue handler')
+        out_handler = Thread(
+            target=self.handle_output,
+            args=(self.out_queue,),
+            name='OutputHandler'
+        )
+        out_handler.start()
+
+        # Start input queue handler
+        self.logger.debug('Starting input queue handler')
+        in_handler = Thread(
+            target=self.handle_input,
+            args=(self.in_queue,),
+            name='InputHandler'
+        )
+        in_handler.start()
+
+        # Startup routine
+        self.logger.debug('Running startup handler')
+        self.handle_start()
+
+        # Main loop
         self.logger.debug('Entering main loop')
-        # Loop until interrupted
-        while True:
-            # Queue size for debugging
-            self.logger.debug('Queue size: {0}'.format(len(self.queue)))
+        while running:
 
             # Process incoming commands
             try:
-                self.handle_input(self._read())
+                line = sys.stdin.readline()
 
-            # Exit hook
+                if line:
+                    line = line.rstrip('\n')
+
+                    self.logger.debug('Received: {0}'.format(line))
+
+                    self.in_queue.put(YateCmd(line))
+
+                else:
+                    raise EOFError
+
+            # Shutdown routine
             except (KeyboardInterrupt, EOFError):
-                self.on_stop()
-                break
 
-            # Intercept exceptions and log the error if debugging is disable
-            except (None if self.debug else Exception), e:
+                # Shutdown handler
+                self.logger.info('Running shutdown handler')
+                self.handle_stop()
+
+                # Shutdown input queue handler
+                self.logger.debug('Shutting down input queue')
+                self.in_queue.put(None)
+                self.logger.debug('Waiting for input queue handler')
+                in_handler.join()
+
+                # Shutdown output queue handler
+                self.logger.debug('Shutting down output queue')
+                self.out_queue.put(None)
+                self.logger.debug('Waiting for output queue handler')
+                out_handler.join()
+
+                # Start shutdown sequence
+                running = False
+
+            # Log exceptions
+            except Exception as e:
                 self.logger.error(e)
-
-    def send(self, cmd):
-        """Command output handler"""
-
-        # Store command into the queue so we can handle the reply
-        if cmd.__method__ in [KW_INSTALL, KW_MESSAGE, KW_SETLOCAL,
-                              KW_UNINSTALL, KW_UNWATCH, KW_WATCH]:
-            self.queue_push(cmd)
-
-        # Send the command
-        self._write(cmd)
 
     def set_local(self, name, value):
         """Set module local parameters"""
 
         self.logger.debug('Setting parameter "{0}": "{1}"'.format(name, value))
 
-        self.send(YateCmdSetLocal(name=name, value=value))
+        cmd = YateCmdSetLocal(name=name, value=value)
+
+        self.cmd_queue.update({cmd.__id__: cmd})
+        self.out_queue.put(cmd)
 
     def uninstall(self, name):
         """Uninstall message handler"""
 
         self.logger.debug('Uninstalling handler for "{0}"'.format(name))
 
-        self.send(YateCmdUnInstall(name=name))
+        cmd = YateCmdUnInstall(name=name)
+
+        self.cmd_queue.update({cmd.__id__: cmd})
+        self.out_queue.put(cmd)
 
     def unwatch(self, name):
         """Uninstall message watcher"""
 
         self.logger.debug('Uninstalling watcher for "{0}"'.format(name))
 
-        self.send(YateCmdUnWatch(name=name))
+        cmd = YateCmdUnWatch(name=name)
+
+        self.cmd_queue.update({cmd.__id__: cmd})
+        self.out_queue.put(cmd)
 
     def watch(self, name):
         """Install message watcher"""
 
         self.logger.debug('Installing watcher for "{0}"'.format(name))
 
-        self.send(YateCmdUnWatch(name=name))
+        cmd = YateCmdWatch(name=name)
+
+        self.cmd_queue.update({cmd.__id__: cmd})
+        self.out_queue.put(cmd)
 
 
 class YateSocketClient(YateExtModule):
     """Socket connected external module"""
+
     # TODO: implement SocketClient class
     pass
 

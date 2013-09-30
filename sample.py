@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 import libyate
+from optparse import OptionParser
 
 
 class my_app(libyate.YateExtModule):
-    def on_start(self):
+    def handle_start(self):
         self.set_local('testing', 'true')
         self.install('test', priority=50)
         self.install('engine.timer')
@@ -17,12 +18,6 @@ class my_app(libyate.YateExtModule):
         self.uninstall('test')
         self.uninstall('engine.timer')
         self.unwatch('call.route')
-
-    def on_stop(self):
-        pass
-
-
-from optparse import OptionParser
 
 parser = OptionParser()
 parser.add_option('-d', '--debug', action='store_true',
