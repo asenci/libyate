@@ -1,11 +1,13 @@
-#!/usr/bin/env python
+"""
+Sample application to test libyate
+"""
 import libyate
-from optparse import OptionParser
 
 
-class my_app(libyate.YateExtModule):
-    def handle_start(self):
+class MyApp(libyate.YateExtModule):
+    def on_start(self):
         self.set_local('testing', 'true')
+        self.set_local('engine.version')
         self.install('test', priority=50)
         self.install('engine.timer')
         self.watch('call.route')
@@ -19,12 +21,29 @@ class my_app(libyate.YateExtModule):
         self.uninstall('engine.timer')
         self.unwatch('call.route')
 
-parser = OptionParser()
-parser.add_option('-d', '--debug', action='store_true',
-                  help='increase logging verbosity')
-parser.add_option('-q', '--quiet', action='store_true',
-                  help='reduce the logging verbosity')
-parser.add_option('-n', '--name', default=__file__,
-                  help='name used for logging')
 
-my_app(**vars(parser.parse_args()[0])).run()
+if __name__ == '__main__':
+    import logging
+    from optparse import OptionParser
+
+    parser = OptionParser()
+    parser.add_option('-d', '--debug', action='store_true', default=False,
+                      help='increase logging verbosity')
+    parser.add_option('-q', '--quiet', action='store_true', default=False,
+                      help='reduce the logging verbosity')
+    parser.add_option('-n', '--name',
+                      help='name used for logging')
+
+    options, _ = parser.parse_args()
+
+    log_format = \
+        '%(asctime)s <%(name)s[%(threadName)s]:%(levelname)s> %(message)s'
+
+    logging.basicConfig(**{
+        'level': (logging.DEBUG if options.debug else
+                  logging.WARN if options.quiet else
+                  logging.INFO),
+        'format': log_format,
+    })
+
+    MyApp(options.name).run()
