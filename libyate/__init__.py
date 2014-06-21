@@ -34,7 +34,7 @@ def cmd_from_string(string):
             'Keyword "{0}" not implemented'.format(keyword))
 
     # Descriptors list
-    desc_list = cmd_cls.__descriptors__()
+    desc_list = cmd_cls.__descriptors__
 
     # Number of attributes to extract from the command string
     num_attrs = len(desc_list) - 1

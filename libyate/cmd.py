@@ -26,6 +26,7 @@ class YateCmdMeta(libyate.type.TypeMeta):
 class YateCmd(object):
     """Object representing an Yate command"""
 
+    __descriptors__ = None
     __keyword__ = None
     __metaclass__ = YateCmdMeta
 
@@ -53,27 +54,20 @@ class YateCmd(object):
         else:
             yield self.__keyword__
 
-        for attr in self.__descriptors__():
+        for attr in self.__descriptors__:
             yield self.__dict__.get(attr.__name__) or ''
 
     def __repr__(self):
         return '{0}.{1}{2}'.format(
             self.__class__.__module__, self.__class__.__name__,
             tuple(x.__get__(self, self.__class__)
-                  for x in self.__descriptors__()))
+                  for x in self.__descriptors__))
 
     def __str__(self):
         return ':'.join(self).rstrip(':')
 
     def __unicode__(self):
         return str(self).decode()
-
-    @classmethod
-    def __descriptors__(cls):
-        return sorted(
-            filter(lambda x: isinstance(x, libyate.type.BaseType),
-                   (v for k, v in cls.__dict__.items())),
-            key=lambda x: x.__instance_number__)
 
 
 class Connect(YateCmd):

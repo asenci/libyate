@@ -248,7 +248,7 @@ class TestYateCmdSetLocalReply(TestCase):
     )
 
     def test_cmd_from_kwargs_raise(self):
-        # self.assertRaises(TypeError, self.cmd_class, TestCase)
+        self.assertRaises(TypeError, self.cmd_class, TestCase, success='true')
         self.assertRaises(ValueError, self.cmd_class, '')
         self.assertRaises(ValueError, self.cmd_class, name='test')
         self.assertRaises(ValueError, self.cmd_class, name='test', value='true')

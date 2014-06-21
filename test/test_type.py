@@ -174,6 +174,7 @@ class TestBoolean(TestCase):
 
     type_class = libyate.type.Boolean
     values = (
+        ('', None),
         ('false', 'false'),
         ('true', 'true'),
         (False, 'false'),
@@ -228,8 +229,11 @@ class TestEncodedString(TestCase):
         o = C()
 
         setattr(o, 'attr', 'abc')
+        setattr(o, 'attr', 'ab%')
         self.assertRaises(ValueError, setattr, o, 'attr', 'ab')
+        self.assertRaises(ValueError, setattr, o, 'attr', 'a%')
         self.assertRaises(ValueError, setattr, o, 'attr', 'abcd')
+        self.assertRaises(ValueError, setattr, o, 'attr', 'abc%')
 
     def test_max_length(self):
         class C(object):
@@ -240,8 +244,11 @@ class TestEncodedString(TestCase):
         o = C()
 
         setattr(o, 'attr', 'ab')
+        setattr(o, 'attr', 'a%')
         setattr(o, 'attr', 'abc')
+        setattr(o, 'attr', 'ab%')
         self.assertRaises(ValueError, setattr, o, 'attr', 'abcd')
+        self.assertRaises(ValueError, setattr, o, 'attr', 'abc%')
 
     def test_min_length(self):
         class C(object):
@@ -252,8 +259,11 @@ class TestEncodedString(TestCase):
         o = C()
 
         setattr(o, 'attr', 'abc')
+        setattr(o, 'attr', 'ab%')
         setattr(o, 'attr', 'abcd')
+        setattr(o, 'attr', 'abc%')
         self.assertRaises(ValueError, setattr, o, 'attr', 'ab')
+        self.assertRaises(ValueError, setattr, o, 'attr', 'a%')
 
     def test_max_min_length(self):
         class C(object):
@@ -264,9 +274,134 @@ class TestEncodedString(TestCase):
         o = C()
 
         setattr(o, 'attr', 'ab')
+        setattr(o, 'attr', 'a%')
         setattr(o, 'attr', 'abc')
+        setattr(o, 'attr', 'ab%')
         setattr(o, 'attr', 'abcd')
+        setattr(o, 'attr', 'abc%')
         self.assertRaises(ValueError, setattr, o, 'attr', 'a')
+        self.assertRaises(ValueError, setattr, o, 'attr', '%')
         self.assertRaises(ValueError, setattr, o, 'attr', 'abcde')
+        self.assertRaises(ValueError, setattr, o, 'attr', 'abcd%')
 
 
+class TestInteger(TestCase):
+
+    __metaclass__ = TypeCaseMeta
+
+    type_class = libyate.type.Integer
+    values = (
+        ('', None),
+        ('0', '0'),
+        (0, '0'),
+        (None, None),
+    )
+
+    def test_raises(self):
+        class C(object):
+            __metaclass__ = libyate.type.TypeMeta
+
+            attr = self.type_class()
+
+        o = C()
+
+        self.assertRaises(ValueError, setattr, o, 'attr', 'a')
+        self.assertRaises(TypeError, setattr, o, 'attr', True)
+
+
+class TestKeyValueTuple(TestCase):
+    __metaclass__ = TypeCaseMeta
+
+    type_class = libyate.type.KeyValueTuple
+    values = (
+        ('', None),
+        ('job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z', 'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'),
+        ((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')), 'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'),
+        ((('time', ''),), 'time'),
+        ((('time', '1095112796'),), 'time=1095112796'),
+        ((('time', None),), 'time'),
+        ([['time', '1095112796'], ], 'time=1095112796'),
+        (None, None),
+        ({'done': True}, 'done=true'),
+        ({'time': '1095112796'}, 'time=1095112796'),
+        ({'time': 1095112796}, 'time=1095112796'),
+    )
+
+    def test_raises(self):
+        class C(object):
+            __metaclass__ = libyate.type.TypeMeta
+
+            attr = self.type_class()
+
+        o = C()
+
+        self.assertRaises(ValueError, setattr, o, 'attr', '=')
+        self.assertRaises(ValueError, setattr, o, 'attr', '=a')
+        self.assertRaises(TypeError, setattr, o, 'attr', True)
+
+    def test_values(self):
+        class KVP(object):
+            __metaclass__ = libyate.type.TypeMeta
+
+            kvp = libyate.type.KeyValueTuple()
+
+        kvp = KVP()
+        kvp.kvp = 'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'
+
+        self.assertEqual('job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z', kvp.__dict__['kvp'])
+        self.assertEqual('cleanup', kvp.kvp['job'])
+        self.assertEqual('75%', kvp.kvp['job.done'])
+        self.assertEqual('/bin:/usr/bin:', kvp.kvp['path'])
+
+
+class TestDateTime(TestCase):
+    from datetime import datetime
+
+    __metaclass__ = TypeCaseMeta
+
+    type_class = libyate.type.DateTime
+    values = (
+        ('', None),
+        ('1095112796', '1095112796'),
+        (1095112796, '1095112796'),
+        (datetime.utcfromtimestamp(1095112796), '1095112796'),
+        (None, None),
+    )
+
+    def test_raises(self):
+        class C(object):
+            __metaclass__ = libyate.type.TypeMeta
+
+            attr = self.type_class()
+
+        o = C()
+
+        self.assertRaises(ValueError, setattr, o, 'attr', 'a')
+        self.assertRaises(TypeError, setattr, o, 'attr', True)
+
+
+class TestKVTuple(TestCase):
+    kv_tuple = libyate.type.kv_tuple((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')))
+
+    def test_from_tuple(self):
+        self.assertEqual(self.kv_tuple, libyate.type.kv_tuple((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:'))))
+
+    def test_from_list(self):
+        self.assertEqual(self.kv_tuple, libyate.type.kv_tuple([['job', 'cleanup'], ['job.done', '75%'], ['path', '/bin:/usr/bin:']]))
+
+    def test_from_kv_tuple(self):
+        self.assertEqual(self.kv_tuple, libyate.type.kv_tuple(self.kv_tuple))
+
+    def test_repr(self):
+        self.assertEqual("libyate.type.kv_tuple((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')))", repr(self.kv_tuple))
+
+    def test_access(self):
+        self.assertEqual('cleanup', self.kv_tuple[0])
+        self.assertEqual('75%', self.kv_tuple[1])
+        self.assertEqual('/bin:/usr/bin:', self.kv_tuple[2])
+        self.assertRaises(IndexError, self.kv_tuple.__getitem__, 3)
+
+        self.assertEqual('cleanup', self.kv_tuple['job'])
+        self.assertEqual('75%', self.kv_tuple['job.done'])
+        self.assertEqual('/bin:/usr/bin:', self.kv_tuple['path'])
+        self.assertRaises(KeyError, self.kv_tuple.__getitem__, 'a')

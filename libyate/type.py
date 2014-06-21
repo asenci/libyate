@@ -18,6 +18,20 @@ class TypeMeta(type):
             if isinstance(attr_value, BaseType):
                 attr_value.__name__ = attr_name
 
+        # Get all attributes from class and its base classes
+        all_attrs = {}
+
+        for cls in reversed(bases):
+            all_attrs.update(cls.__dict__)
+
+        all_attrs.update(attrs)
+
+        # Build a sorted list of all descriptors
+        attrs['__descriptors__'] = sorted(
+            filter(lambda x: isinstance(x, BaseType),
+                   (v for k, v in all_attrs.items())),
+            key=lambda x: x.__instance_number__)
+
         return super(TypeMeta, mcs).__new__(mcs, name, bases, attrs)
 
 
@@ -28,13 +42,17 @@ class TypeMeta(type):
 class kv_tuple(tuple):
     """Tuple of key-value pairs"""
 
+    def __new__(cls, seq=()):
+        return super(kv_tuple, cls).__new__(
+            cls, tuple(tuple((x, y)) for (x, y) in seq))
+
     def __init__(self, seq=()):
         super(kv_tuple, self).__init__(seq)
         self.__keys__, self.__values__ = zip(*self)
 
     def __getitem__(self, item):
         if isinstance(item, int):
-            return super(kv_tuple, self).__getitem__(item)
+            return self.__values__[item]
 
         try:
             idx = self.__keys__.index(item)
@@ -194,18 +212,15 @@ class EncodedString(String):
                 yate_decode(value))
 
     def format_for_set(self, value):
-        if value is None:
-            return
+        container = String(blank=self.blank, length=self.length,
+                           min_length=self.min_length,
+                           max_length=self.max_length)
+        container.__name__ = self.__name__
 
-        elif isinstance(value, (str, unicode)):
-            return super(EncodedString, self).format_for_set(
-                yate_encode(value))
+        value = container.format_for_set(value)
 
-        elif isinstance(value, (int, bool)):
-            return yate_encode(super(EncodedString, self).format_for_set(
-                value))
-
-        raise TypeError
+        if value is not None:
+            return yate_encode(value)
 
 
 class Integer(String):
@@ -218,6 +233,9 @@ class Integer(String):
             return int(super(Integer, self).format_for_get(value))
 
     def format_for_set(self, value):
+        if isinstance(value, bool):
+            raise TypeError
+
         if value is None or isinstance(value, (str, unicode, int)):
             return super(Integer, self).format_for_set(value)
 
@@ -231,25 +249,50 @@ class KeyValueTuple(String):
 
     def format_for_get(self, value):
         if value is not None:
-            return kv_tuple(
-                tuple(yate_decode(s) for s in x.partition('=')[::2]) for x in
-                super(KeyValueTuple, self).format_for_get(value).split(':')
-            )
+            value = super(KeyValueTuple, self).format_for_get(value).split(':')
+            result = []
+
+            for k, v in ((x.partition('=')[::2]) for x in value):
+                if k in [None, '']:
+                    raise ValueError('Key on key-value pair cannot be empty')
+
+                result.append((yate_decode(k), yate_decode(v or '')))
+
+            return kv_tuple(result)
 
     def format_for_set(self, value):
         if isinstance(value, (dict, list, set, tuple)):
             if isinstance(value, dict):
                 value = value.items()
 
-            value = ':'.join(
-                '='.join([
-                    EncodedString().format_for_set(k),
-                    EncodedString().format_for_set(v)
-                ]).rstrip('=') for k, v in value
-            )
+            result = []
 
-        if value is not None:
+            for k, v in value:
+                class KVP(object):
+
+                    __metaclass__ = TypeMeta
+
+                    key = EncodedString()
+                    value = EncodedString(blank=True)
+
+                    def __init__(self, key, value):
+                        self.key = key
+                        self.value = value
+
+                kvp = KVP(k, v)
+
+                result.append(
+                    '='.join([
+                        kvp.__dict__['key'],
+                        kvp.__dict__['value'] or '',
+                    ]).rstrip('='))
+
+            value = ':'.join(result)
+
+        if value is None or isinstance(value, (str, unicode)):
             return super(KeyValueTuple, self).format_for_set(value)
+
+        raise TypeError
 
 
 class DateTime(Integer):
