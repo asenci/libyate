@@ -3,6 +3,7 @@ libyate - command definitions
 """
 
 import libyate.type
+import libyate.util
 
 _id = id
 
@@ -54,14 +55,14 @@ class YateCmd(object):
         else:
             yield self.__keyword__
 
-        for attr in self.__descriptors__:
-            yield self.__dict__.get(attr.__name__) or ''
+        for desc in self.__descriptors__:
+            yield libyate.util.yate_str(desc.to_string(self))
 
     def __repr__(self):
-        return '{0}.{1}{2}'.format(
+        return '{0}.{1}({2})'.format(
             self.__class__.__module__, self.__class__.__name__,
-            tuple(x.__get__(self, self.__class__)
-                  for x in self.__descriptors__))
+            ', '.join(repr(x.__get__(self, self.__class__))
+                      for x in self.__descriptors__))
 
     def __str__(self):
         return ':'.join(self).rstrip(':')
@@ -75,9 +76,9 @@ class Connect(YateCmd):
 
     __keyword__ = '%%>connect'
 
-    role = libyate.type.EncodedString()
-    id = libyate.type.EncodedString(blank=True)
-    type = libyate.type.EncodedString(blank=True)
+    role = libyate.type.String(encoded=True)
+    id = libyate.type.String(blank=True, encoded=True)
+    type = libyate.type.String(blank=True, encoded=True)
 
     def __init__(self, role=None, id=None, type=None):
         super(Connect, self).__init__(role=role, id=id, type=type)
@@ -100,9 +101,9 @@ class Install(YateCmd):
     __keyword__ = '%%>install'
 
     priority = libyate.type.Integer(blank=True)
-    name = libyate.type.EncodedString()
-    filter_name = libyate.type.EncodedString(blank=True)
-    filter_value = libyate.type.EncodedString(blank=True)
+    name = libyate.type.String(encoded=True)
+    filter_name = libyate.type.String(blank=True, encoded=True)
+    filter_value = libyate.type.String(blank=True, encoded=True)
 
     def __init__(self, priority=None, name=None, filter_name=None,
                  filter_value=None):
@@ -117,7 +118,7 @@ class InstallReply(YateCmd):
     __keyword__ = '%%<install'
 
     priority = libyate.type.Integer()
-    name = libyate.type.EncodedString()
+    name = libyate.type.String(encoded=True)
     success = libyate.type.Boolean()
 
     def __init__(self, priority=None, name=None, success=None):
@@ -130,11 +131,11 @@ class Message(YateCmd):
 
     __keyword__ = '%%>message'
 
-    id = libyate.type.EncodedString()
+    id = libyate.type.String(encoded=True)
     time = libyate.type.DateTime()
-    name = libyate.type.EncodedString()
-    retvalue = libyate.type.EncodedString(blank=True)
-    kvp = libyate.type.KeyValueTuple(blank=True)
+    name = libyate.type.String(encoded=True)
+    retvalue = libyate.type.String(blank=True, encoded=True)
+    kvp = libyate.type.KeyValueList(blank=True)
 
     def __init__(self, id=None, time=None, name=None, retvalue=None,
                  kvp=None):
@@ -176,11 +177,11 @@ class MessageReply(YateCmd):
 
     __keyword__ = '%%<message'
 
-    id = libyate.type.EncodedString()
+    id = libyate.type.String(encoded=True)
     processed = libyate.type.Boolean()
-    name = libyate.type.EncodedString(blank=True)
-    retvalue = libyate.type.EncodedString(blank=True)
-    kvp = libyate.type.KeyValueTuple(blank=True)
+    name = libyate.type.String(blank=True, encoded=True)
+    retvalue = libyate.type.String(blank=True, encoded=True)
+    kvp = libyate.type.KeyValueList(blank=True)
 
     def __init__(self, id=None, processed=None, name=None, retvalue=None,
                  kvp=None):
@@ -204,8 +205,8 @@ class SetLocal(YateCmd):
 
     __keyword__ = '%%>setlocal'
 
-    name = libyate.type.EncodedString()
-    value = libyate.type.EncodedString(blank=True)
+    name = libyate.type.String(encoded=True)
+    value = libyate.type.String(blank=True, encoded=True)
 
     def __init__(self, name=None, value=None):
         super(SetLocal, self).__init__(name=name, value=value)
@@ -216,8 +217,8 @@ class SetLocalReply(YateCmd):
 
     __keyword__ = '%%<setlocal'
 
-    name = libyate.type.EncodedString()
-    value = libyate.type.EncodedString()
+    name = libyate.type.String(encoded=True)
+    value = libyate.type.String(encoded=True)
     success = libyate.type.Boolean()
 
     def __init__(self, name=None, value=None, success=None):
@@ -230,7 +231,7 @@ class UnInstall(YateCmd):
 
     __keyword__ = '%%>uninstall'
 
-    name = libyate.type.EncodedString()
+    name = libyate.type.String(encoded=True)
 
     def __init__(self, name=None):
         YateCmd.__init__(self, name=name)
@@ -242,7 +243,7 @@ class UnInstallReply(YateCmd):
     __keyword__ = '%%<uninstall'
 
     priority = libyate.type.Integer()
-    name = libyate.type.EncodedString()
+    name = libyate.type.String(encoded=True)
     success = libyate.type.Boolean()
 
     def __init__(self, priority=None, name=None, success=None):
@@ -255,7 +256,7 @@ class UnWatch(YateCmd):
 
     __keyword__ = '%%>unwatch'
 
-    name = libyate.type.EncodedString()
+    name = libyate.type.String(encoded=True)
 
     def __init__(self, name=None):
         super(UnWatch, self).__init__(name=name)
@@ -266,7 +267,7 @@ class UnWatchReply(YateCmd):
 
     __keyword__ = '%%<unwatch'
 
-    name = libyate.type.EncodedString()
+    name = libyate.type.String(encoded=True)
     success = libyate.type.Boolean()
 
     def __init__(self, name=None, success=None):
@@ -278,7 +279,7 @@ class Watch(YateCmd):
 
     __keyword__ = '%%>watch'
 
-    name = libyate.type.EncodedString()
+    name = libyate.type.String(encoded=True)
 
     def __init__(self, name=None):
         super(Watch, self).__init__(name=name)
@@ -289,7 +290,7 @@ class WatchReply(YateCmd):
 
     __keyword__ = '%%<watch'
 
-    name = libyate.type.EncodedString()
+    name = libyate.type.String(encoded=True)
     success = libyate.type.Boolean()
 
     def __init__(self, name=None, success=None):

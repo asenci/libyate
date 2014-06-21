@@ -4,6 +4,7 @@ Test cases for libyate.cmd
 
 import libyate
 import libyate.cmd
+import libyate.type
 
 from datetime import datetime
 from unittest import TestCase
@@ -91,7 +92,7 @@ class TestYateCmd(TestCase):
         self.assertNotEqual(c1, c2)
 
     def test_cmd_repr(self):
-        self.assertEqual("libyate.cmd.Message('myapp55251%', datetime.datetime(2004, 9, 13, 21, 59, 54), 'app.job:', None, libyate.type.kv_tuple((('path', '/bin:/usr/bin'), ('job', 'cleanup'), ('done', '75%'))))", repr(libyate.cmd_from_string('%%>message:myapp55251%%:1095112794:app.job%z::path=/bin%z/usr/bin:job=cleanup:done=75%%')))
+        self.assertEqual("libyate.cmd.Message('myapp55251%', datetime.datetime(2004, 9, 13, 21, 59, 54), 'app.job:', None, libyate.type.OrderedDict((('path', '/bin:/usr/bin'), ('job', 'cleanup'), ('done', '75%'))))", repr(libyate.cmd_from_string('%%>message:myapp55251%%:1095112794:app.job%z::path=/bin%z/usr/bin:job=cleanup:done=75%%')))
 
     def test_cmd_unicode(self):
         self.assertTrue(isinstance(unicode(libyate.cmd_from_string('%%>connect:test')), unicode))
@@ -171,9 +172,9 @@ class TestYateCmdMessage(TestCase):
     strings = (
         ('%%>message:234479288:1095112796:engine.timer', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer')),
         ('%%>message:234479288:1095112796:engine.timer:ok', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer', retvalue='ok')),
-        ('%%>message:234479288:1095112796:engine.timer:ok:time=1095112796', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer', retvalue='ok', kvp=(('time', '1095112796'),))),
-        ('%%>message:234479288:1095112796:engine.timer::time=1095112796', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer', kvp=(('time', '1095112796'),))),
-        ('%%>message:myapp55251%%:1095112794:app.job%z::job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z', dict(id='myapp55251%', time=datetime.utcfromtimestamp(1095112794), name='app.job:', kvp=(('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')))),
+        ('%%>message:234479288:1095112796:engine.timer:ok:time=1095112796', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer', retvalue='ok', kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
+        ('%%>message:234479288:1095112796:engine.timer::time=1095112796', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer', kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
+        ('%%>message:myapp55251%%:1095112794:app.job%z::job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z', dict(id='myapp55251%', time=datetime.utcfromtimestamp(1095112794), name='app.job:', kvp=libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:'))))),
     )
 
     def test_cmd_from_kwargs_raise(self):
@@ -196,11 +197,11 @@ class TestYateCmdMessageReply(TestCase):
         ('%%<message:234479208:false', dict(id='234479208', processed=False)),
         ('%%<message:234479208:false:engine.timer', dict(id='234479208', processed=False, name='engine.timer')),
         ('%%<message:234479208:false:engine.timer:ok', dict(id='234479208', processed=False, name='engine.timer', retvalue='ok')),
-        ('%%<message:234479208:false:engine.timer:ok:time=1095112796', dict(id='234479208', processed=False, name='engine.timer', retvalue='ok', kvp=(('time', '1095112796'),))),
-        ('%%<message:234479208:false::ok:time=1095112796', dict(id='234479208', processed=False, retvalue='ok', kvp=(('time', '1095112796'),))),
-        ('%%<message:234479208:false:::time=1095112796', dict(id='234479208', processed=False, kvp=(('time', '1095112796'),))),
-        ('%%<message:234479208:false:engine.timer::time=1095112796', dict(id='234479208', processed=False, name='engine.timer', kvp=(('time', '1095112796'),))),
-        ('%%<message:myapp55251%%:true:app.job%z:Restart required%}:path=/bin%z/usr/bin%z/usr/local/bin', dict(id='myapp55251%', processed=True, name='app.job:', retvalue='Restart required=', kvp=(('path', '/bin:/usr/bin:/usr/local/bin'),))),
+        ('%%<message:234479208:false:engine.timer:ok:time=1095112796', dict(id='234479208', processed=False, name='engine.timer', retvalue='ok', kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
+        ('%%<message:234479208:false::ok:time=1095112796', dict(id='234479208', processed=False, retvalue='ok', kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
+        ('%%<message:234479208:false:::time=1095112796', dict(id='234479208', processed=False, kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
+        ('%%<message:234479208:false:engine.timer::time=1095112796', dict(id='234479208', processed=False, name='engine.timer', kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
+        ('%%<message:myapp55251%%:true:app.job%z:Restart required%}:path=/bin%z/usr/bin%z/usr/local/bin', dict(id='myapp55251%', processed=True, name='app.job:', retvalue='Restart required=', kvp=libyate.type.OrderedDict((('path', '/bin:/usr/bin:/usr/local/bin'),)))),
     )
 
     def test_cmd_from_kwargs_raise(self):

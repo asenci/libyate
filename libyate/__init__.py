@@ -20,7 +20,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 def cmd_from_string(string):
     from libyate.cmd import KW_MAP
-    from libyate.type import EncodedString
+    from libyate.type import String
     from libyate.util import yate_decode
 
     # Get keyword from the command string
@@ -33,18 +33,19 @@ def cmd_from_string(string):
         raise NotImplementedError(
             'Keyword "{0}" not implemented'.format(keyword))
 
-    # Descriptors list
-    desc_list = cmd_cls.__descriptors__
-
     # Number of attributes to extract from the command string
-    num_attrs = len(desc_list) - 1
+    num_attrs = len(cmd_cls.__descriptors__) - 1
 
-    # New command object
+    # Instantialize command object
     cmd_obj = cmd_cls.__new__(cmd_cls)
 
     # Map arguments to descriptors
-    map(lambda d, v: d.__set__(
-        cmd_obj, d.format_for_get(v or None)),
-        desc_list, args.split(':', num_attrs))
+    for desc, value in zip(cmd_cls.__descriptors__,
+                           args.split(':', num_attrs)):
+
+        if isinstance(desc, String) and desc.encoded:
+            value = yate_decode(value)
+
+        desc.__set__(cmd_obj, value)
 
     return cmd_obj

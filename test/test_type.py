@@ -28,11 +28,12 @@ class TypeCaseMeta(type):
 
         o = C()
 
-        for n, (v, r) in enumerate(values):
-            def test_value_repr(obj, val, rep):
+        for n, (v, r, s) in enumerate(values):
+            def test_value_repr(obj, val, rep, st):
                 def test(self):
                     setattr(obj, 'attr', val)
                     self.assertEqual(rep, obj.__dict__['attr'])
+                    self.assertEqual(st, C.attr.to_string(o))
 
                 return test
 
@@ -43,7 +44,7 @@ class TypeCaseMeta(type):
 
                 return test
 
-            attrs['test_value_repr_%s' % n] = test_value_repr(o, v, r)
+            attrs['test_value_repr_%s' % n] = test_value_repr(o, v, r, s)
             attrs['test_blank'] = test_blank(o)
 
         return super(TypeCaseMeta, mcs).__new__(mcs, name, bases, attrs)
@@ -59,13 +60,13 @@ class TestBaseType(TestCase):
 
     type_class = libyate.type.BaseType
     values = (
-        ('', ''),
-        ('a', 'a'),
-        (('a',), ('a',)),
-        (0, 0),
-        (None, None),
-        (True, True),
-        (u'a', u'a'),
+        ('', '', ''),
+        ('a', 'a', 'a'),
+        (('a',), ('a',), "('a',)"),
+        (0, 0, '0'),
+        (None, None, ''),
+        (True, True, 'true'),
+        (u'a', u'a', u'a'),
     )
 
     def test_repr(self):
@@ -92,18 +93,140 @@ class TestBaseType(TestCase):
         self.assertTrue('attr' not in o.__dict__)
 
 
+class TestBoolean(TestCase):
+
+    __metaclass__ = TypeCaseMeta
+
+    type_class = libyate.type.Boolean
+    values = (
+        ('', None, ''),
+        ('false', False, 'false'),
+        ('true', True, 'true'),
+        (False, False, 'false'),
+        (None, None, ''),
+        (True, True, 'true'),
+    )
+
+    def test_raises(self):
+        class C(object):
+            __metaclass__ = libyate.type.TypeMeta
+
+            attr = self.type_class()
+
+        o = C()
+
+        self.assertRaises(ValueError, setattr, o, 'attr', 'tru')
+        self.assertRaises(TypeError, setattr, o, 'attr', 0)
+
+
+class TestDateTime(TestCase):
+    from datetime import datetime
+
+    __metaclass__ = TypeCaseMeta
+
+    type_class = libyate.type.DateTime
+    values = (
+        ('', None, ''),
+        ('1095112796', datetime.utcfromtimestamp(1095112796), '1095112796'),
+        (1095112796, datetime.utcfromtimestamp(1095112796), '1095112796'),
+        (datetime.utcfromtimestamp(1095112796), datetime.utcfromtimestamp(1095112796), '1095112796'),
+        (None, None, ''),
+    )
+
+    def test_raises(self):
+        class C(object):
+            __metaclass__ = libyate.type.TypeMeta
+
+            attr = self.type_class()
+
+        o = C()
+
+        self.assertRaises(ValueError, setattr, o, 'attr', 'a')
+        self.assertRaises(TypeError, setattr, o, 'attr', True)
+
+
+class TestInteger(TestCase):
+
+    __metaclass__ = TypeCaseMeta
+
+    type_class = libyate.type.Integer
+    values = (
+        ('', None, ''),
+        ('0', 0, '0'),
+        (0, 0, '0'),
+        (None, None, ''),
+    )
+
+    def test_raises(self):
+        class C(object):
+            __metaclass__ = libyate.type.TypeMeta
+
+            attr = self.type_class()
+
+        o = C()
+
+        self.assertRaises(ValueError, setattr, o, 'attr', 'a')
+        self.assertRaises(TypeError, setattr, o, 'attr', True)
+
+
+class TestKeyValueList(TestCase):
+    __metaclass__ = TypeCaseMeta
+
+    type_class = libyate.type.KeyValueList
+    values = (
+        ('', None, ''),
+        ('job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z', libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:'))), 'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'),
+        ('time', libyate.type.OrderedDict((('time', ''),)), 'time'),
+        ('time=1095112796', libyate.type.OrderedDict((('time', '1095112796'),)), 'time=1095112796'),
+        ((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')), libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:'))), 'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'),
+        ((('time', '1095112796'),), libyate.type.OrderedDict((('time', '1095112796'),)), 'time=1095112796'),
+        ((('time', None),), libyate.type.OrderedDict((('time', None),)), 'time'),
+        ([['time', '1095112796'], ], libyate.type.OrderedDict((('time', '1095112796'),)), 'time=1095112796'),
+        (None, None, ''),
+        ({'done': True}, libyate.type.OrderedDict((('done', True),)), 'done=true'),
+        ({'time': '1095112796'}, libyate.type.OrderedDict((('time', '1095112796'),)), 'time=1095112796'),
+        ({'time': 1095112796}, libyate.type.OrderedDict((('time', 1095112796),)), 'time=1095112796'),
+    )
+
+    def test_raises(self):
+        class C(object):
+            __metaclass__ = libyate.type.TypeMeta
+
+            attr = self.type_class()
+
+        o = C()
+
+        self.assertRaises(ValueError, setattr, o, 'attr', '=')
+        self.assertRaises(ValueError, setattr, o, 'attr', '=a')
+        self.assertRaises(TypeError, setattr, o, 'attr', True)
+
+    def test_values(self):
+        class KVP(object):
+            __metaclass__ = libyate.type.TypeMeta
+
+            kvp = libyate.type.KeyValueList()
+
+        kvp = KVP()
+        kvp.kvp = 'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'
+
+        self.assertEqual(libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:'))), kvp.__dict__['kvp'])
+        self.assertEqual('cleanup', kvp.kvp['job'])
+        self.assertEqual('75%', kvp.kvp['job.done'])
+        self.assertEqual('/bin:/usr/bin:', kvp.kvp['path'])
+
+
 class TestString(TestCase):
 
     __metaclass__ = TypeCaseMeta
 
     type_class = libyate.type.String
     values = (
-        ('', None),
-        ('a', 'a'),
-        (0, '0'),
-        (None, None),
-        (True, 'true'),
-        (u'a', u'a'),
+        ('', None, ''),
+        ('a', 'a', 'a'),
+        (0, '0', '0'),
+        (None, None, ''),
+        (True, 'true', 'true'),
+        (u'a', u'a', u'a'),
     )
 
     def test_raises(self):
@@ -168,45 +291,21 @@ class TestString(TestCase):
         self.assertRaises(ValueError, setattr, o, 'attr', 'abcde')
 
 
-class TestBoolean(TestCase):
-
-    __metaclass__ = TypeCaseMeta
-
-    type_class = libyate.type.Boolean
-    values = (
-        ('', None),
-        ('false', 'false'),
-        ('true', 'true'),
-        (False, 'false'),
-        (None, None),
-        (True, 'true'),
-    )
-
-    def test_raises(self):
-        class C(object):
-            __metaclass__ = libyate.type.TypeMeta
-
-            attr = self.type_class()
-
-        o = C()
-
-        self.assertRaises(ValueError, setattr, o, 'attr', 'tru')
-        self.assertRaises(TypeError, setattr, o, 'attr', 0)
-
-
 class TestEncodedString(TestCase):
 
     __metaclass__ = TypeCaseMeta
 
-    type_class = libyate.type.EncodedString
+    class type_class(libyate.type.String):
+        encoded = True
+
     values = (
-        ('', None),
-        ('a', 'a'),
-        (u'a', u'a'),
-        ('%', '%%'),
-        (0, '0'),
-        (None, None),
-        (True, 'true'),
+        ('', None, ''),
+        ('a', 'a', 'a'),
+        (u'a', u'a', u'a'),
+        ('%', '%', '%%'),
+        (0, '0', '0'),
+        (None, None, ''),
+        (True, 'true', 'true'),
     )
 
     def test_raises(self):
@@ -285,123 +384,39 @@ class TestEncodedString(TestCase):
         self.assertRaises(ValueError, setattr, o, 'attr', 'abcd%')
 
 
-class TestInteger(TestCase):
-
-    __metaclass__ = TypeCaseMeta
-
-    type_class = libyate.type.Integer
-    values = (
-        ('', None),
-        ('0', '0'),
-        (0, '0'),
-        (None, None),
-    )
-
-    def test_raises(self):
-        class C(object):
-            __metaclass__ = libyate.type.TypeMeta
-
-            attr = self.type_class()
-
-        o = C()
-
-        self.assertRaises(ValueError, setattr, o, 'attr', 'a')
-        self.assertRaises(TypeError, setattr, o, 'attr', True)
-
-
-class TestKeyValueTuple(TestCase):
-    __metaclass__ = TypeCaseMeta
-
-    type_class = libyate.type.KeyValueTuple
-    values = (
-        ('', None),
-        ('job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z', 'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'),
-        ((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')), 'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'),
-        ((('time', ''),), 'time'),
-        ((('time', '1095112796'),), 'time=1095112796'),
-        ((('time', None),), 'time'),
-        ([['time', '1095112796'], ], 'time=1095112796'),
-        (None, None),
-        ({'done': True}, 'done=true'),
-        ({'time': '1095112796'}, 'time=1095112796'),
-        ({'time': 1095112796}, 'time=1095112796'),
-    )
-
-    def test_raises(self):
-        class C(object):
-            __metaclass__ = libyate.type.TypeMeta
-
-            attr = self.type_class()
-
-        o = C()
-
-        self.assertRaises(ValueError, setattr, o, 'attr', '=')
-        self.assertRaises(ValueError, setattr, o, 'attr', '=a')
-        self.assertRaises(TypeError, setattr, o, 'attr', True)
-
-    def test_values(self):
-        class KVP(object):
-            __metaclass__ = libyate.type.TypeMeta
-
-            kvp = libyate.type.KeyValueTuple()
-
-        kvp = KVP()
-        kvp.kvp = 'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'
-
-        self.assertEqual('job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z', kvp.__dict__['kvp'])
-        self.assertEqual('cleanup', kvp.kvp['job'])
-        self.assertEqual('75%', kvp.kvp['job.done'])
-        self.assertEqual('/bin:/usr/bin:', kvp.kvp['path'])
-
-
-class TestDateTime(TestCase):
-    from datetime import datetime
-
-    __metaclass__ = TypeCaseMeta
-
-    type_class = libyate.type.DateTime
-    values = (
-        ('', None),
-        ('1095112796', '1095112796'),
-        (1095112796, '1095112796'),
-        (datetime.utcfromtimestamp(1095112796), '1095112796'),
-        (None, None),
-    )
-
-    def test_raises(self):
-        class C(object):
-            __metaclass__ = libyate.type.TypeMeta
-
-            attr = self.type_class()
-
-        o = C()
-
-        self.assertRaises(ValueError, setattr, o, 'attr', 'a')
-        self.assertRaises(TypeError, setattr, o, 'attr', True)
-
-
-class TestKVTuple(TestCase):
-    kv_tuple = libyate.type.kv_tuple((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')))
+class TestOrderedDict(TestCase):
+    kvp = libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')))
 
     def test_from_tuple(self):
-        self.assertEqual(self.kv_tuple, libyate.type.kv_tuple((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:'))))
+        self.assertEqual(self.kvp, libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:'))))
 
     def test_from_list(self):
-        self.assertEqual(self.kv_tuple, libyate.type.kv_tuple([['job', 'cleanup'], ['job.done', '75%'], ['path', '/bin:/usr/bin:']]))
+        self.assertEqual(self.kvp, libyate.type.OrderedDict([['job', 'cleanup'], ['job.done', '75%'], ['path', '/bin:/usr/bin:']]))
 
-    def test_from_kv_tuple(self):
-        self.assertEqual(self.kv_tuple, libyate.type.kv_tuple(self.kv_tuple))
+    def test_from_orddict(self):
+        self.assertEqual(self.kvp, libyate.type.OrderedDict(self.kvp))
 
     def test_repr(self):
-        self.assertEqual("libyate.type.kv_tuple((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')))", repr(self.kv_tuple))
+        self.assertEqual("libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')))", repr(self.kvp))
+
+    def test_len(self):
+        self.assertEqual(3, len(self.kvp))
 
     def test_access(self):
-        self.assertEqual('cleanup', self.kv_tuple[0])
-        self.assertEqual('75%', self.kv_tuple[1])
-        self.assertEqual('/bin:/usr/bin:', self.kv_tuple[2])
-        self.assertRaises(IndexError, self.kv_tuple.__getitem__, 3)
+        self.assertEqual('cleanup', self.kvp['job'])
+        self.assertEqual('75%', self.kvp['job.done'])
+        self.assertEqual('/bin:/usr/bin:', self.kvp['path'])
+        self.assertRaises(KeyError, self.kvp.__getitem__, 'a')
 
-        self.assertEqual('cleanup', self.kv_tuple['job'])
-        self.assertEqual('75%', self.kv_tuple['job.done'])
-        self.assertEqual('/bin:/usr/bin:', self.kv_tuple['path'])
-        self.assertRaises(KeyError, self.kv_tuple.__getitem__, 'a')
+    def test_copy(self):
+        new = self.kvp.copy()
+        self.assertEqual(self.kvp, new)
+        self.assertNotEqual(id(self.kvp), id(new))
+
+    def test_reversed(self):
+        self.assertEqual(list(reversed(self.kvp)), list(reversed(list(self.kvp))))
+
+    def test_delete(self):
+        new = self.kvp.copy()
+        del new['job']
+        self.assertRaises(KeyError, new.__getitem__, 'job')
