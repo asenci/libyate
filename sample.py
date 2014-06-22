@@ -1,28 +1,49 @@
+#!/usr/bin/env python
 """
 Sample application to test libyate
 """
-import libyate
+
+import libyate.app
 
 
-class MyApp(libyate.YateExtModule):
-    def on_start(self):
-        self.set_local('testing', 'true')
+class MyApp(libyate.app.YateExtScript):
+    def run(self):
+        from time import sleep
+
+        # Query engine version
         self.set_local('engine.version')
-        self.install('test', priority=50)
-        self.install('engine.timer')
-        self.watch('call.route')
-        self.message(
-            name='app.job',
-            id='myapp55251',
-            kvp={
-                'job': 'cleanup', 'done': '75%', 'path': '/bin:/usr/bin'
-            })
-        self.uninstall('test')
-        self.uninstall('engine.timer')
-        self.unwatch('call.route')
+
+        # Install handler for "call.route"
+        self.install('call.route', priority=50, handler=self.call_route)
+
+        # Install watcher for "engine.timer"
+        self.watch('engine.timer', handler=self.timer)
+
+        # Send a message to the engine
+        self.message(name='myapp.test', id='somerandomid',
+                     kvp={'testing': True,
+                          'done': '75%',
+                          'path': '/bin:/usr/bin'},
+                     callback=self.reply)
+
+        sleep(1)
+        self.unwatch('engine.timer')
+
+    def call_route(self, msg):
+        self.logger.info('Handling "call.route": {0!r}'.format(msg))
+
+        # Just reply with processed = False
+        return msg.reply()
+
+    def reply(self, msg):
+        self.logger.info('Got result: {0!r}'.format(msg))
+
+    def timer(self, msg):
+        self.logger.info('Some periodic routine')
 
 
 if __name__ == '__main__':
+
     import logging
     from optparse import OptionParser
 
@@ -31,9 +52,6 @@ if __name__ == '__main__':
                       help='increase logging verbosity')
     parser.add_option('-q', '--quiet', action='store_true', default=False,
                       help='reduce the logging verbosity')
-    parser.add_option('-n', '--name',
-                      help='name used for logging')
-
     options, _ = parser.parse_args()
 
     log_format = \
@@ -46,4 +64,6 @@ if __name__ == '__main__':
         'format': log_format,
     })
 
-    MyApp(options.name).run()
+    MyApp('sample.py').start()
+
+

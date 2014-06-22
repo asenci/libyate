@@ -1,14 +1,7 @@
-%%<setlocal:testing:true:true
-%%<install:50:test:true
-%%<install:100:engine.timer:true
-%%<message:myapp55251:true:app.job:Restart required:path=/bin%z/usr/bin%z/usr/local/bin
-%%>message:234479208:1095112795:engine.timer::time=1095112795
-%%>message:234479288:1095112796:engine.timer::time=1095112796
-%%>message:234479244:1095112797:engine.timer::time=1095112797
-%%<uninstall:50:test:false
-%%<uninstall:100:engine.timer:true
-%%<uninstall:100:engine.timer:true
-%%>message:234479244:1095112797:engine.test:false:testing=true
-%%<unwatch:call.route:true
-Error in:%%>watch:call.route
-%%>teste:234479244:1095112797:engine.test:false
+%%<setlocal:engine.version:5.3.0:true
+%%<install:50:call.route:true
+%%<watch:engine.timer:true
+%%<message:somerandomid:false:myapp.test::path=/bin%z/usr/bin:testing=true:done=75%%
+%%<message::false:engine.timer::time=1403408878:nodename=hades.home:handlers=tone%z90,yrtp%z90,sip%z90,regfile%z100
+%%>message:1530541021:1403409825:call.route::id=sip/1:module=sip:status=incoming:answered=false:direction=incoming:caller=test:called=99991001:handlers=regexroute%z100,cdrbuild%z50
+%%<unwatch:engine.timer:true
