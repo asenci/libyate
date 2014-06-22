@@ -65,7 +65,7 @@ class YateCmd(object):
                       for x in self.__descriptors__))
 
     def __str__(self):
-        return ':'.join(self).rstrip(':')
+        return ':'.join(self)
 
     def __unicode__(self):
         return str(self).decode()
@@ -177,7 +177,7 @@ class MessageReply(YateCmd):
 
     __keyword__ = '%%<message'
 
-    id = libyate.type.String(encoded=True)
+    id = libyate.type.String(encoded=True, blank=True)
     processed = libyate.type.Boolean()
     name = libyate.type.String(blank=True, encoded=True)
     retvalue = libyate.type.String(blank=True, encoded=True)
