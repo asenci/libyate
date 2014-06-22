@@ -103,8 +103,8 @@ class TestYateCmdConnect(TestCase):
 
     cmd_class = libyate.cmd.Connect
     strings = (
-        ('%%>connect:test', dict(role='test')),
-        ('%%>connect:test:1234', dict(role='test', id='1234')),
+        ('%%>connect:test::', dict(role='test')),
+        ('%%>connect:test:1234:', dict(role='test', id='1234')),
         ('%%>connect:test:anyid:audio', dict(role='test', id='anyid', type='audio')),
         ('%%>connect:test%%:anyid%z:audio%}', dict(role='test%', id='anyid:', type='audio=')),
     )
@@ -132,9 +132,9 @@ class TestYateCmdInstall(TestCase):
 
     cmd_class = libyate.cmd.Install
     strings = (
-        ('%%>install::test', dict(name='test')),
-        ('%%>install:50:test', dict(priority=50, name='test')),
-        ('%%>install:50:test:filter', dict(priority=50, name='test', filter_name='filter')),
+        ('%%>install::test::', dict(name='test')),
+        ('%%>install:50:test::', dict(priority=50, name='test')),
+        ('%%>install:50:test:filter:', dict(priority=50, name='test', filter_name='filter')),
         ('%%>install:50:test:filter:value', dict(priority=50, name='test', filter_name='filter', filter_value='value')),
         ('%%>install:50:test%%:filter%z:value%}', dict(priority=50, name='test%', filter_name='filter:', filter_value='value=')),
     )
@@ -170,8 +170,8 @@ class TestYateCmdMessage(TestCase):
 
     cmd_class = libyate.cmd.Message
     strings = (
-        ('%%>message:234479288:1095112796:engine.timer', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer')),
-        ('%%>message:234479288:1095112796:engine.timer:ok', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer', retvalue='ok')),
+        ('%%>message:234479288:1095112796:engine.timer::', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer')),
+        ('%%>message:234479288:1095112796:engine.timer:ok:', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer', retvalue='ok')),
         ('%%>message:234479288:1095112796:engine.timer:ok:time=1095112796', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer', retvalue='ok', kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
         ('%%>message:234479288:1095112796:engine.timer::time=1095112796', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer', kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
         ('%%>message:myapp55251%%:1095112794:app.job%z::job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z', dict(id='myapp55251%', time=datetime.utcfromtimestamp(1095112794), name='app.job:', kvp=libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:'))))),
@@ -194,9 +194,9 @@ class TestYateCmdMessageReply(TestCase):
 
     cmd_class = libyate.cmd.MessageReply
     strings = (
-        ('%%<message:234479208:false', dict(id='234479208', processed=False)),
-        ('%%<message:234479208:false:engine.timer', dict(id='234479208', processed=False, name='engine.timer')),
-        ('%%<message:234479208:false:engine.timer:ok', dict(id='234479208', processed=False, name='engine.timer', retvalue='ok')),
+        ('%%<message:234479208:false:::', dict(id='234479208', processed=False)),
+        ('%%<message:234479208:false:engine.timer::', dict(id='234479208', processed=False, name='engine.timer')),
+        ('%%<message:234479208:false:engine.timer:ok:', dict(id='234479208', processed=False, name='engine.timer', retvalue='ok')),
         ('%%<message:234479208:false:engine.timer:ok:time=1095112796', dict(id='234479208', processed=False, name='engine.timer', retvalue='ok', kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
         ('%%<message:234479208:false::ok:time=1095112796', dict(id='234479208', processed=False, retvalue='ok', kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
         ('%%<message:234479208:false:::time=1095112796', dict(id='234479208', processed=False, kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
@@ -229,7 +229,7 @@ class TestYateCmdSetLocal(TestCase):
 
     cmd_class = libyate.cmd.SetLocal
     strings = (
-        ('%%>setlocal:test', dict(name='test')),
+        ('%%>setlocal:test:', dict(name='test')),
         ('%%>setlocal:test:true', dict(name='test', value='true')),
         ('%%>setlocal:test%z:true%%', dict(name='test:', value='true%')),
     )
