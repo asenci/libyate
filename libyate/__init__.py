@@ -30,8 +30,8 @@ def cmd_from_string(string):
     cmd_cls = KW_MAP.get(keyword)
 
     if cmd_cls is None:
-        raise NotImplementedError(
-            'Keyword "{0}" not implemented'.format(keyword))
+        raise NotImplementedError('Keyword "{0}" not implemented'
+                                  .format(keyword))
 
     # Number of attributes to extract from the command string
     num_attrs = len(cmd_cls.__descriptors__) - 1
