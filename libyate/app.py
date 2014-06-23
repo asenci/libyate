@@ -27,6 +27,9 @@ class YateExtScript(object):
         # Logger instance
         self.logger = logging.getLogger(self.__name__)
 
+        # Input queue
+        self._input = Queue()
+
         # Output queue
         self._output = Queue()
 
@@ -36,176 +39,274 @@ class YateExtScript(object):
     def start(self):
         """Start main loop and wait for commands"""
 
-        from sys import stdin
+        self.logger.info('Starting module')
+
+        import signal
         from threading import Thread
 
-        self.logger.info('Starting module')
-        Thread(target=self.on_start, name='StartupThread').start()
+        # Register signals
+        signal.signal(signal.SIGINT, self.stop)
+        signal.signal(signal.SIGTERM, self.stop)
+
+        if hasattr(signal, 'CTRL_BREAK_EVENT'):
+            signal.signal(signal.CTRL_BREAK_EVENT, self.stop)
+        if hasattr(signal, 'CTRL_C_EVENT'):
+            signal.signal(signal.CTRL_C_EVENT, self.stop)
+
+        # Start the output handler thread
+        ti = Thread(target=self.on_input, name='InputThread')
+        ti.daemon = True
+        ti.start()
+
+        # Start the output handler thread
+        to = Thread(target=self.on_output, name='OutputThread')
+        to.daemon = True
+        to.start()
+
+        # Start the startup handler thread
+        ts = Thread(target=self.on_startup, name='StartupThread')
+        ts.daemon = True
+        ts.start()
 
         # Main loop
-        self.logger.debug('Started input')
         while True:
 
             # Process incoming commands
             try:
-                line = stdin.readline()
+                cmd = self.receive()
 
-                if line:
-                    line = line.rstrip('\n')
-                    self.logger.debug('Received: {0}'.format(line))
+                # Interrupt on None
+                if not cmd:
+                    break
 
-                    # Start a new handler thread
-                    cmd_obj = libyate.cmd_from_string(line)
-                    Thread(target=self.on_command, args=(cmd_obj,),
-                           name='{0}({1})'.format(type(cmd_obj).__name__,
-                                                  id(cmd_obj))).start()
+                # Start a new handler thread
+                Thread(target=self.on_command, args=(cmd, ),
+                                 name='{0}({1})'.format(
+                                     type(cmd).__name__, id(cmd))).start()
 
-                else:
-                    raise EOFError
+            # Log exceptions
+            except:
+                self.logger.exception('Error processing command')
 
-            # Interrupt main loop
-            except (EOFError, IOError, KeyboardInterrupt, SystemExit):
-                self.logger.info('Stopped input')
+        self.logger.debug('Waiting for threads')
+
+    def stop(self, signum=None, frame=None):
+        self.logger.info('Stopping module')
+        self.close()
+        self._input.put(None)
+        self._output.put(None)
+
+    def readline(self):
+        from sys import stdin
+
+        try:
+            string = stdin.readline(8192)
+
+        except ValueError as e:
+            raise IOError(str(e))
+
+        if string:
+            string = string.rstrip('\n')
+            self.logger.debug('Received {0} bytes: {1}'
+                              .format(len(string.encode()), string))
+            return string
+
+        else:
+            raise EOFError('Received EOF')
+
+    def write(self, string):
+        from sys import stdout
+
+        self.logger.debug('Sending {0} bytes: {1}'
+                          .format(len(string.encode()), string))
+
+        try:
+            stdout.write(string + '\n')
+
+        except ValueError as e:
+            raise IOError(str(e))
+
+        else:
+            # Flush buffer
+            stdout.flush()
+
+    def close(self):
+        from sys import stdin
+        stdin.close()
+
+    def receive(self):
+        from Queue import Empty
+
+        while True:
+            try:
+                string = self._input.get(timeout=10)
+                self._input.task_done()
+
+                if string is not None:
+                    return libyate.cmd_from_string(string)
+
+                break
+
+            except Empty:
+                continue
+
+    def send(self, command):
+        self._output.put(str(command))
+
+    def on_input(self):
+        """Input handler"""
+
+        self.logger.debug('Started input')
+
+        # Main loop
+        while True:
+
+            try:
+                self._input.put(self.readline())
+
+            # Interrupt on EOFError
+            except EOFError:
+                self.logger.debug('Stopping input')
+                break
+
+            # Interrupt on IOError
+            except IOError:
+                self.logger.exception('Stopping input')
                 break
 
             # Log exceptions
             except:
-                self.logger.exception('Error reading from stdin')
+                self.logger.exception('Error processing input')
 
-        self.logger.debug('Waiting for threads')
-
-    def send(self, command):
-        self._output.put(command)
-
-    def on_start(self):
-        """Module startup routine"""
-
-        from threading import Thread
-
-        # Start the output handler thread
-        self.logger.debug('Starting output handler thread')
-        t = Thread(target=self.on_output, name='OutputThread')
-        t.daemon = True
-        t.start()
-
-        # Execute user code
-        self.logger.debug('Executing user code')
-        self.run()
-
-    def on_command(self, cmd_obj):
-        """Command handler"""
-
-        self.logger.debug('Received command: {0!r}'.format(cmd_obj))
-
-        try:
-            if isinstance(cmd_obj, (libyate.cmd.Message,
-                                    libyate.cmd.MessageReply)):
-
-                # Message from installed handlers
-                if isinstance(cmd_obj, libyate.cmd.Message):
-                    handler = self.__msg_handlers__[cmd_obj.name]
-
-                # Reply from application generated message
-                elif cmd_obj.id is not None:
-                    handler = self.__msg_callback__.pop(cmd_obj.id)
-
-                # Notification from installed watchers
-                else:
-                    handler = self.__msg_watchers__[cmd_obj.name]
-
-                self.logger.debug('Handler: {0}'.format(handler))
-                result = handler(cmd_obj)
-
-                self.logger.debug('Result: {0}'.format(result))
-                if result is not None:
-                    self.send(result)
-
-            elif isinstance(cmd_obj, libyate.cmd.Error):
-                self.logger.error('Invalid command: {0}'
-                                  .format(cmd_obj.original))
-
-            elif isinstance(cmd_obj, libyate.cmd.InstallReply):
-                if cmd_obj.success:
-                    self.logger.info('Installed handler for "{0}"'
-                                     .format(cmd_obj.name))
-                else:
-                    self.logger.error('Error installing handler for "{0}"'
-                                      .format(cmd_obj.name))
-
-            elif isinstance(cmd_obj, libyate.cmd.SetLocalReply):
-                if cmd_obj.success:
-                    self.logger.info('Parameter "{0}" set to: {1}'
-                                     .format(cmd_obj.name, cmd_obj.value))
-                else:
-                    self.logger.error('Error setting parameter "{0}"'
-                                      .format(cmd_obj.name))
-
-            elif isinstance(cmd_obj, libyate.cmd.UnInstallReply):
-                if cmd_obj.success:
-                    self.logger.info('Removed handler for "{0}"'
-                                     .format(cmd_obj.name))
-                else:
-                    self.logger.error('Error removing handler for "{0}"'
-                                      .format(cmd_obj.name))
-
-            elif isinstance(cmd_obj, libyate.cmd.UnWatchReply):
-                if cmd_obj.success:
-                    self.logger.info('Removed watcher for "{0}"'
-                                     .format(cmd_obj.name))
-                else:
-                    self.logger.error('Error removing watcher for "{0}"'
-                                      .format(cmd_obj.name))
-
-            elif isinstance(cmd_obj, libyate.cmd.WatchReply):
-                if cmd_obj.success:
-                    self.logger.info('Installed watcher for "{0}"'
-                                     .format(cmd_obj.name))
-                else:
-                    self.logger.error('Error installing watcher for "{0}"'
-                                      .format(cmd_obj.name))
-
-            else:
-                self.logger.critical('No handler defined for "{0}" command'
-                                     .format(type(cmd_obj).__name__))
-
-        except:
-            self.logger.exception('Error processing command: {0}'
-                                  .format(cmd_obj))
+        # Stop module
+        self.stop()
 
     def on_output(self):
-        """Output queue handler"""
-        from sys import stdout
+        """Output handler"""
+
+        from Queue import Empty
 
         self.logger.debug('Started output')
 
         # Main loop
         while True:
 
-            # Get next command from the queue
-            cmd_obj = self._output.get()
-
-            # Send command to the engine
+            # Send string to the engine
             try:
-                self.logger.debug('Sending: {0}'.format(cmd_obj))
-                stdout.write('{0}\n'.format(cmd_obj))
 
-                # Flush buffer
-                stdout.flush()
+                # Get next string from the queue
+                string = self._output.get(timeout=10)
+                self._output.task_done()
 
-            # Interrupt loop on IOError
+                if string is None:
+                    break
+
+                self.write(string)
+
+            except Empty:
+                continue
+
+            # Interrupt on IOError
             except IOError:
-                self.logger.debug('Stopping thread')
+                self.logger.exception('Stopping output')
                 break
 
             # Log exceptions
             except:
-                self.logger.exception('Error processing queue')
+                self.logger.exception('Error processing output')
 
-            # Mark task as done
-            finally:
-                self._output.task_done()
+        # Stop module
+        self.stop()
 
-        self.logger.info('Stopped output')
+    def on_startup(self):
+        try:
+            # Execute user code
+            self.logger.debug('Executing user code')
+            self.run()
+
+        except:
+            self.logger.exception('Error on module startup')
+            self.stop()
+
+    def on_command(self, cmd):
+        """Command handler"""
+
+        self.logger.debug('Received command: {0!r}'.format(cmd))
+
+        try:
+            if isinstance(cmd, (libyate.cmd.Message,
+                                libyate.cmd.MessageReply)):
+
+                # Message from installed handlers
+                if isinstance(cmd, libyate.cmd.Message):
+                    handler = self.__msg_handlers__[cmd.name]
+
+                # Reply from application generated message
+                elif cmd.id is not None:
+                    handler = self.__msg_callback__.pop(cmd.id)
+
+                # Notification from installed watchers
+                else:
+                    handler = self.__msg_watchers__[cmd.name]
+
+                self.logger.debug('Handler: {0}'.format(handler))
+                result = handler(cmd)
+
+                self.logger.debug('Result: {0}'.format(result))
+                if result is not None:
+                    self.send(result)
+
+            elif isinstance(cmd, libyate.cmd.Error):
+                self.logger.error('Invalid command: {0}'
+                                  .format(cmd.original))
+
+            elif isinstance(cmd, libyate.cmd.InstallReply):
+                if cmd.success:
+                    self.logger.info('Installed handler for "{0}"'
+                                     .format(cmd.name))
+                else:
+                    self.logger.error('Error installing handler for "{0}"'
+                                      .format(cmd.name))
+
+            elif isinstance(cmd, libyate.cmd.SetLocalReply):
+                if cmd.success:
+                    self.logger.info('Parameter "{0}" set to: {1}'
+                                     .format(cmd.name, cmd.value))
+                else:
+                    self.logger.error('Error setting parameter "{0}"'
+                                      .format(cmd.name))
+
+            elif isinstance(cmd, libyate.cmd.UnInstallReply):
+                if cmd.success:
+                    self.logger.info('Removed handler for "{0}"'
+                                     .format(cmd.name))
+                else:
+                    self.logger.error('Error removing handler for "{0}"'
+                                      .format(cmd.name))
+
+            elif isinstance(cmd, libyate.cmd.UnWatchReply):
+                if cmd.success:
+                    self.logger.info('Removed watcher for "{0}"'
+                                     .format(cmd.name))
+                else:
+                    self.logger.error('Error removing watcher for "{0}"'
+                                      .format(cmd.name))
+
+            elif isinstance(cmd, libyate.cmd.WatchReply):
+                if cmd.success:
+                    self.logger.info('Installed watcher for "{0}"'
+                                     .format(cmd.name))
+                else:
+                    self.logger.error('Error installing watcher for "{0}"'
+                                      .format(cmd.name))
+
+            else:
+                self.logger.critical('No handler defined for "{0}" command'
+                                     .format(type(cmd).__name__))
+
+        except:
+            self.logger.exception('Error processing command: {0}'
+                                  .format(cmd))
 
     def connect(self, role, id=None, type=None):
         """Attach to a socket interface"""

@@ -8,8 +8,6 @@ import libyate.app
 
 class MyApp(libyate.app.YateExtScript):
     def run(self):
-        from time import sleep
-
         # Query engine version
         self.set_local('engine.version')
 
@@ -26,17 +24,22 @@ class MyApp(libyate.app.YateExtScript):
                           'path': '/bin:/usr/bin'},
                      callback=self.reply)
 
+        from time import sleep
         sleep(1)
         self.unwatch('engine.timer')
 
     def call_route(self, msg):
         self.logger.info('Handling "call.route": {0!r}'.format(msg))
 
+        from time import sleep
+        sleep(30)
+        self.logger.info('Finished!')
+
         # Just reply with processed = False
         return msg.reply()
 
     def reply(self, msg):
-        self.logger.info('Got result: {0!r}'.format(msg))
+        self.logger.info('Got reply for "{0}"'.format(msg.id))
 
     def timer(self, msg):
         self.logger.info('Some periodic routine')
