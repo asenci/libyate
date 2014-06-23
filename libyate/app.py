@@ -408,6 +408,130 @@ class YateExtScript(object):
 class YateExtClient(YateExtScript):
     """Yate external module socket client"""
 
-    # TODO: implement SocketClient class
-    def __new__(cls, *args, **kwargs):
-        raise NotImplementedError('Socket client not implemented yet')
+    def __init__(self, host_or_path, port=None, name=None):
+        super(YateExtClient, self).__init__(name)
+
+        self._host_or_path = host_or_path
+        self._port = port
+
+        self._socket = None
+        self._recv_buff = None
+
+    def start(self):
+
+        # Try to connect the socket
+        try:
+
+            # UNIX socket
+            if self._host_or_path[0] in ['.', '/']:
+                from socket import socket
+                from socket import AF_UNIX, SOCK_STREAM
+
+                self._socket = socket(family=AF_UNIX)
+                self._socket.connect(self._host_or_path)
+
+            # INET/INET6 socket
+            else:
+                from socket import socket, getaddrinfo, error
+                from socket import AF_UNSPEC, SOCK_STREAM, IPPROTO_TCP
+
+                # Get protocols and addresses
+                l = getaddrinfo(self._host_or_path, self._port, AF_UNSPEC,
+                                SOCK_STREAM, IPPROTO_TCP)
+
+                while l:
+
+                    # Get connection data
+                    f, t, p, c, a = l.pop()
+
+                    # Try to create the socket
+                    try:
+                        self._socket = socket(f, t, p)
+
+                    # Error creating the socket
+                    except error:
+
+                        # Try next resource
+                        if l:
+                            continue
+
+                        # No resources left
+                        raise
+
+                    # Try to connect to the address
+                    try:
+                        self._socket.connect(a)
+
+                    # Error connecting to the address
+                    except error:
+                        self._socket.close()
+
+                        # Try next resource
+                        if l:
+                            continue
+
+                        # No resources left
+                        raise
+
+                    # Socket connected, continue execution
+                    break
+
+        # Failed to connect the socket
+        except:
+            self.logger.exception('Failed to connect')
+
+        # Socket connected, continue startup
+        else:
+
+            # Clean receive buffer
+            self._recv_buff = ''
+
+            # Main loop
+            super(YateExtClient, self).start()
+
+            # Close socket
+            self._socket.close()
+
+    def readline(self):
+        from socket import error
+
+        # Continue receiving until '\n' is received
+        while '\n' not in self._recv_buff:
+
+            try:
+                data = self._socket.recv(8192)
+            except error as e:
+                raise IOError(str(e))
+
+            # Append received data to the buffer
+            if data:
+                self._recv_buff += data
+
+            # No data received (socket has been closed)
+            else:
+                raise EOFError('Socket closed')
+
+        # Get the received command and leave any additional data on the buffer
+        string, self._recv_buff = self._recv_buff.partition('\n')[::2]
+
+        self.logger.debug('Received {0} bytes: {1}'
+                          .format(len(string.encode()), string))
+        return string
+
+    def write(self, string):
+        from socket import error
+
+        self.logger.debug('Sending {0} bytes: {1}'
+                          .format(len(string.encode()), string))
+
+        try:
+            self._socket.sendall(string + '\n')
+
+        except error as e:
+            raise IOError(str(e))
+
+    def close(self):
+        from socket import error, SHUT_RD
+
+        # Close socket for read operations
+        self._socket.shutdown(SHUT_RD)
