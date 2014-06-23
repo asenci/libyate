@@ -64,5 +64,3 @@ if __name__ == '__main__':
     })
 
     MyApp('sample.py').start()
-
-

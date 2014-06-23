@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='libyate',
-    version='0.3',
+    version='1.0',
     packages=['libyate'],
     url='https://bitbucket.org/asenci/libyate',
     license='ISC License',
