@@ -7,7 +7,7 @@ import libyate.cmd
 
 
 class YateExtScript(object):
-    """External script"""
+    """Yate external module script"""
 
     def __init__(self, name=None):
         import logging
@@ -53,7 +53,7 @@ class YateExtScript(object):
         if hasattr(signal, 'CTRL_C_EVENT'):
             signal.signal(signal.CTRL_C_EVENT, self.stop)
 
-        # Start the output handler thread
+        # Start the input handler thread
         ti = Thread(target=self.on_input, name='InputThread')
         ti.daemon = True
         ti.start()
@@ -92,9 +92,24 @@ class YateExtScript(object):
 
     def stop(self, signum=None, frame=None):
         self.logger.info('Stopping module')
-        self.close()
-        self._input.put(None)
-        self._output.put(None)
+
+        # Try to close the input
+        try:
+            self.close()
+        except:
+            pass
+
+        # Stop input handler thread
+        try:
+            self._input.put(None)
+        except:
+            pass
+
+        # Stop output handler thread
+        try:
+            self._output.put(None)
+        except:
+            pass
 
     def readline(self):
         from sys import stdin
@@ -390,8 +405,8 @@ class YateExtScript(object):
         self.send(libyate.cmd.Watch(name))
 
 
-class YateSocketClient(YateExtScript):
-    """Socket client"""
+class YateExtClient(YateExtScript):
+    """Yate external module socket client"""
 
     # TODO: implement SocketClient class
     def __new__(cls, *args, **kwargs):
