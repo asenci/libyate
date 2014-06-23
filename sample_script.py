@@ -31,10 +31,6 @@ class MyApp(libyate.app.YateExtScript):
     def call_route(self, msg):
         self.logger.info('Handling "call.route": {0!r}'.format(msg))
 
-        from time import sleep
-        sleep(30)
-        self.logger.info('Finished!')
-
         # Just reply with processed = False
         return msg.reply()
 
