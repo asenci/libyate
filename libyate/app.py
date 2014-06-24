@@ -258,7 +258,7 @@ class YateExtScript(object):
 
                 # Reply from application generated message
                 elif cmd.id is not None:
-                    handler = self.__msg_callback__.pop(cmd.id)
+                    handler = self.__msg_callback__.pop(cmd.id).callback
 
                 # Notification from installed watchers
                 else:
@@ -348,12 +348,14 @@ class YateExtScript(object):
         """Send message to the engine"""
 
         msg = libyate.cmd.Message(id, time, name, retvalue, kvp)
+        msg.callback = callback
+
         self.logger.debug('Sending message to the engine: {0!r}'.format(msg))
 
         if msg.id in self.__msg_callback__:
             raise KeyError('Message ID already in use: {0!r}'.format(msg.id))
 
-        self.__msg_callback__[msg.id] = callback
+        self.__msg_callback__[msg.id] = msg
 
         self.send(msg)
 
