@@ -216,6 +216,7 @@ class TestKeyValueList(TestCase):
 
 
 class TestString(TestCase):
+    from datetime import datetime
 
     __metaclass__ = TypeCaseMeta
 
@@ -227,6 +228,7 @@ class TestString(TestCase):
         (None, None, ''),
         (True, 'true', 'true'),
         (u'a', u'a', u'a'),
+        (datetime.utcfromtimestamp(1095112796), '1095112796', '1095112796')
     )
 
     def test_raises(self):
@@ -420,3 +422,22 @@ class TestOrderedDict(TestCase):
         new = self.kvp.copy()
         del new['job']
         self.assertRaises(KeyError, new.__getitem__, 'job')
+
+
+class TestYateStatus(TestCase):
+    string = 'name=cdrbuild,type=cdr,format=Status|Caller|Called|BillId|Duration;cdrs=5,hungup=0;sip/4=answered|test|99991007|1403660477-4|12,sip/5=answered|test|99991007|1403660477-6|3,sip/6=answered|test|99991007|1403660477-8|2,sip/7=answered|test|99991007|1403660477-10|2,sip/8=answered|test|99991007|1403660477-12|2'
+    obj = libyate.type.YateStatus(string)
+
+    def test_repr(self):
+        self.assertEqual('<libyate.type.YateStatus "cdrbuild">', repr(self.obj))
+
+    def test_attrs(self):
+        self.assertEqual('cdrbuild', self.obj.definition['name'])
+        self.assertEqual('Status|Caller|Called|BillId|Duration', self.obj.definition['format'])
+        self.assertEqual('5', self.obj.status['cdrs'])
+        self.assertEqual(5, len(self.obj.nodes))
+        self.assertEqual('1403660477-4', self.obj.nodes['sip/4']['BillId'])
+        self.assertEqual('99991007', self.obj.nodes['sip/4']['Called'])
+        self.assertEqual('test', self.obj.nodes['sip/4']['Caller'])
+        self.assertEqual('12', self.obj.nodes['sip/4']['Duration'])
+        self.assertEqual('answered', self.obj.nodes['sip/4']['Status'])

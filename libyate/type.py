@@ -54,6 +54,34 @@ class OrderedDict(MutableMapping, dict):
         return self.__class__(self)
 
 
+class YateStatus(object):
+    def __init__(self, string):
+
+        # Definition, status and nodes groups are separated by ';'
+        definition, status = string.partition(';')[::2]
+        status, nodes = status.partition(';')[::2]
+
+        # Attributes are represented by key=value pairs separated by ','
+        self.definition = dict((x.partition('=')[::2])
+                               for x in definition.split(','))
+        self.status = dict((x.partition('=')[::2])
+                           for x in status.split(','))
+        self.nodes = dict((x.partition('=')[::2])
+                          for x in nodes.split(','))
+
+        # Nodes attributes are separated by '|'
+        # Attributes names are optionally defined on the 'format' attribute
+        if self.definition.get('format') is not None:
+            fmt = self.definition.get('format').split('|')
+            for k, v in self.nodes.items():
+                self.nodes[k] = dict(zip(fmt, v.split('|')))
+
+    def __repr__(self):
+        return '<{0}.{1} "{2}">'.format(
+            self.__class__.__module__, self.__class__.__name__,
+            self.definition.get('name', 'undefined'))
+
+
 #
 # Meta classes
 #
