@@ -2,6 +2,7 @@
 libyate - custom types and descriptors
 """
 
+from abc import ABCMeta, abstractmethod
 from collections import MutableMapping
 
 
@@ -86,7 +87,7 @@ class YateStatus(object):
 # Meta classes
 #
 
-class TypeMeta(type):
+class TypeMeta(ABCMeta):
     """Metaclass for classes with descriptor declarations"""
 
     def __new__(mcs, name, bases, attrs):
@@ -165,6 +166,7 @@ class BaseType(object):
         if self.__name__ in instance.__dict__:
             del instance.__dict__[self.__name__]
 
+    @abstractmethod
     def format(self, value):
         return value
 

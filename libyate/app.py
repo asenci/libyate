@@ -5,9 +5,13 @@ libyate - application code
 import libyate
 import libyate.cmd
 
+from abc import ABCMeta, abstractmethod
 
-class YateExtScript(object):
-    """Yate external module script"""
+
+class YateApp(object):
+    """Yate Application"""
+
+    __metaclass__ = ABCMeta
 
     def __init__(self, name=None):
         import logging
@@ -111,43 +115,17 @@ class YateExtScript(object):
         except:
             pass
 
+    @abstractmethod
     def readline(self):
-        from sys import stdin
+        pass
 
-        try:
-            string = stdin.readline(8192)
-
-        except ValueError as e:
-            raise IOError(str(e))
-
-        if string:
-            string = string.rstrip('\n')
-            self.logger.debug('Received {0} bytes: {1}'
-                              .format(len(string.encode()), string))
-            return string
-
-        else:
-            raise EOFError('Received EOF')
-
+    @abstractmethod
     def write(self, string):
-        from sys import stdout
+        pass
 
-        self.logger.debug('Sending {0} bytes: {1}'
-                          .format(len(string.encode()), string))
-
-        try:
-            stdout.write(string + '\n')
-
-        except ValueError as e:
-            raise IOError(str(e))
-
-        else:
-            # Flush buffer
-            stdout.flush()
-
+    @abstractmethod
     def close(self):
-        from sys import stdin
-        stdin.close()
+        pass
 
     def receive(self):
         from Queue import Empty
@@ -407,7 +385,7 @@ class YateExtScript(object):
         self.send(libyate.cmd.Watch(name))
 
 
-class YateExtClient(YateExtScript):
+class YateExtClient(YateApp):
     """Yate external module socket client"""
 
     def __init__(self, host_or_path, port=None, name=None):
@@ -533,7 +511,50 @@ class YateExtClient(YateExtScript):
             raise IOError(str(e))
 
     def close(self):
-        from socket import error, SHUT_RD
+        from socket import SHUT_RD
 
         # Close socket for read operations
         self._socket.shutdown(SHUT_RD)
+
+
+class YateExtScript(YateApp):
+    """Yate external module script"""
+
+    def readline(self):
+        from sys import stdin
+
+        try:
+            string = stdin.readline(8192)
+
+        except ValueError as e:
+            raise IOError(str(e))
+
+        if string:
+            string = string.rstrip('\n')
+            self.logger.debug('Received {0} bytes: {1}'
+                              .format(len(string.encode()), string))
+            return string
+
+        else:
+            raise EOFError('Received EOF')
+
+    def write(self, string):
+        from sys import stdout
+
+        self.logger.debug('Sending {0} bytes: {1}'
+                          .format(len(string.encode()), string))
+
+        try:
+            stdout.write(string + '\n')
+
+        except ValueError as e:
+            raise IOError(str(e))
+
+        else:
+            # Flush buffer
+            stdout.flush()
+
+    def close(self):
+        from sys import stdin
+
+        stdin.close()

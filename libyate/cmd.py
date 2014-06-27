@@ -5,6 +5,9 @@ libyate - command definitions
 import libyate.type
 import libyate.util
 
+from abc import abstractmethod
+
+
 _id = id
 
 KW_MAP = {}
@@ -31,13 +34,7 @@ class YateCmd(object):
     __keyword__ = None
     __metaclass__ = YateCmdMeta
 
-    def __new__(cls, *args, **kwargs):
-        if cls == YateCmd:
-            raise NotImplementedError('{0} must be sub-classed'.format(
-                cls.__name__))
-        else:
-            return super(YateCmd, cls).__new__(cls)
-
+    @abstractmethod
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)

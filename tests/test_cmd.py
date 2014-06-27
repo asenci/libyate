@@ -25,9 +25,9 @@ class CmdCaseMeta(type):
         strings = attrs.get('strings', ())
 
         if cmd_class is None:
-            attrs['test_cmd_not_implemented_raise'] = \
+            attrs['test_cmd_abstract_raise'] = \
                 lambda self: \
-                self.assertRaises(NotImplementedError, libyate.cmd.YateCmd)
+                self.assertRaises(TypeError, libyate.cmd.YateCmd)
 
         for n, (s, d) in enumerate(strings):
             def test_cmd_from_string(cmd_obj, string):
@@ -83,7 +83,11 @@ class TestYateCmd(TestCase):
                           '%%>invalid_method:false')
 
     def test_cmd_no_keyword_raise(self):
-        cmd = object.__new__(libyate.cmd.YateCmd)
+        class C(libyate.cmd.YateCmd):
+            def __init__(self):
+                pass
+
+        cmd = C()
         self.assertRaises(NotImplementedError, str, cmd)
 
     def test_cmd_neq(self):
