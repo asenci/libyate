@@ -52,19 +52,16 @@ if __name__ == '__main__':
     import logging
     from optparse import OptionParser
 
-    parser = OptionParser()
+    parser = OptionParser('usage: %prog [options] <host or path> [port]')
     parser.add_option('-d', '--debug', action='store_true', default=False,
                       help='increase logging verbosity')
     parser.add_option('-q', '--quiet', action='store_true', default=False,
                       help='reduce the logging verbosity')
-    parser.add_option('-H', '--host', default=None,
-                      help='connect to host address')
-    parser.add_option('-p', '--port', default=None,
-                      help='port number')
-    parser.add_option('-s', '--socket', default=None,
-                      help='connect to unix socket')
 
-    options, _ = parser.parse_args()
+    options, args = parser.parse_args()
+
+    if len(args) < 1:
+        parser.error('either a host or a path must be specified')
 
     log_format = \
         '%(asctime)s <%(name)s[%(threadName)s]:%(levelname)s> %(message)s'
@@ -76,4 +73,4 @@ if __name__ == '__main__':
         'format': log_format,
     })
 
-    MyApp(options.host or options.socket, options.port, 'sample.py').start()
+    MyApp(*args, name='sample.py').start()
