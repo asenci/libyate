@@ -391,6 +391,11 @@ class YateExtClient(YateApp):
     def __init__(self, host_or_path, port=None, name=None):
         super(YateExtClient, self).__init__(name)
 
+        if host_or_path is None:
+            raise ValueError('Either a host or a path must be specified')
+        if host_or_path[0] not in ['.', '/'] and port is None:
+            raise ValueError('Port number must be specified for tcp hosts')
+
         self._host_or_path = host_or_path
         self._port = port
 
