@@ -10,8 +10,9 @@ from unittest import TestCase
 # Meta classes
 #
 
+# noinspection PyDocstring
 class TypeCaseMeta(type):
-    """Meta class for YateCmd test cases"""
+    """Meta class for Command test cases"""
 
     def __new__(mcs, name, bases, attrs):
         # Get command class
@@ -20,8 +21,9 @@ class TypeCaseMeta(type):
         # Get strings
         values = attrs.get('values', ())
 
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = type_class(blank=True)
             not_blank = type_class()
@@ -58,7 +60,7 @@ class TestBaseType(TestCase):
 
     __metaclass__ = TypeCaseMeta
 
-    type_class = libyate.type.BaseType
+    type_class = libyate.type.Descriptor
     values = (
         ('', '', ''),
         ('a', 'a', 'a'),
@@ -70,18 +72,20 @@ class TestBaseType(TestCase):
     )
 
     def test_repr(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = self.type_class()
 
-        self.assertEqual('<libyate.type.BaseType "attr">', repr(C.attr))
+        self.assertEqual('<libyate.type.Descriptor "attr">', repr(C.attr))
 
     def test_delete(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
-            attr = libyate.type.BaseType()
+            attr = libyate.type.Descriptor()
 
         o = C()
         self.assertTrue('attr' not in o.__dict__)
@@ -108,8 +112,9 @@ class TestBoolean(TestCase):
     )
 
     def test_raises(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = self.type_class()
 
@@ -129,13 +134,15 @@ class TestDateTime(TestCase):
         ('', None, ''),
         ('1095112796', datetime.utcfromtimestamp(1095112796), '1095112796'),
         (1095112796, datetime.utcfromtimestamp(1095112796), '1095112796'),
-        (datetime.utcfromtimestamp(1095112796), datetime.utcfromtimestamp(1095112796), '1095112796'),
+        (datetime.utcfromtimestamp(1095112796),
+         datetime.utcfromtimestamp(1095112796), '1095112796'),
         (None, None, ''),
     )
 
     def test_raises(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = self.type_class()
 
@@ -158,8 +165,9 @@ class TestInteger(TestCase):
     )
 
     def test_raises(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = self.type_class()
 
@@ -175,22 +183,38 @@ class TestKeyValueList(TestCase):
     type_class = libyate.type.KeyValueList
     values = (
         ('', None, ''),
-        ('job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z', libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:'))), 'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'),
+        ('job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z',
+         libyate.type.OrderedDict(
+             (('job', 'cleanup'), ('job.done', '75%'),
+              ('path', '/bin:/usr/bin:'))),
+         'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'),
         ('time', libyate.type.OrderedDict((('time', ''),)), 'time'),
-        ('time=1095112796', libyate.type.OrderedDict((('time', '1095112796'),)), 'time=1095112796'),
-        ((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')), libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:'))), 'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'),
-        ((('time', '1095112796'),), libyate.type.OrderedDict((('time', '1095112796'),)), 'time=1095112796'),
-        ((('time', None),), libyate.type.OrderedDict((('time', None),)), 'time'),
-        ([['time', '1095112796'], ], libyate.type.OrderedDict((('time', '1095112796'),)), 'time=1095112796'),
+        ('time=1095112796', libyate.type.OrderedDict(
+            (('time', '1095112796'),)), 'time=1095112796'),
+        ((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')),
+         libyate.type.OrderedDict(
+             (('job', 'cleanup'), ('job.done', '75%'),
+              ('path', '/bin:/usr/bin:'))),
+         'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'),
+        ((('time', '1095112796'),), libyate.type.OrderedDict(
+            (('time', '1095112796'),)), 'time=1095112796'),
+        ((('time', None),), libyate.type.OrderedDict(
+            (('time', None),)), 'time'),
+        ([['time', '1095112796'], ], libyate.type.OrderedDict(
+            (('time', '1095112796'),)), 'time=1095112796'),
         (None, None, ''),
-        ({'done': True}, libyate.type.OrderedDict((('done', True),)), 'done=true'),
-        ({'time': '1095112796'}, libyate.type.OrderedDict((('time', '1095112796'),)), 'time=1095112796'),
-        ({'time': 1095112796}, libyate.type.OrderedDict((('time', 1095112796),)), 'time=1095112796'),
+        ({'done': True}, libyate.type.OrderedDict(
+            (('done', True),)), 'done=true'),
+        ({'time': '1095112796'}, libyate.type.OrderedDict(
+            (('time', '1095112796'),)), 'time=1095112796'),
+        ({'time': 1095112796}, libyate.type.OrderedDict(
+            (('time', 1095112796),)), 'time=1095112796'),
     )
 
     def test_raises(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = self.type_class()
 
@@ -200,16 +224,20 @@ class TestKeyValueList(TestCase):
         self.assertRaises(ValueError, setattr, o, 'attr', '=a')
         self.assertRaises(TypeError, setattr, o, 'attr', True)
 
+    # noinspection PyUnresolvedReferences
     def test_values(self):
+        # noinspection PyDocstring
         class KVP(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             kvp = libyate.type.KeyValueList()
 
         kvp = KVP()
         kvp.kvp = 'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'
 
-        self.assertEqual(libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:'))), kvp.__dict__['kvp'])
+        self.assertEqual(libyate.type.OrderedDict(
+            (('job', 'cleanup'), ('job.done', '75%'),
+             ('path', '/bin:/usr/bin:'))), kvp.__dict__['kvp'])
         self.assertEqual('cleanup', kvp.kvp['job'])
         self.assertEqual('75%', kvp.kvp['job.done'])
         self.assertEqual('/bin:/usr/bin:', kvp.kvp['path'])
@@ -232,8 +260,9 @@ class TestString(TestCase):
     )
 
     def test_raises(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = self.type_class()
 
@@ -243,8 +272,9 @@ class TestString(TestCase):
         self.assertRaises(TypeError, setattr, o, 'attr', ('a',))
 
     def test_length(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = libyate.type.String(length=3)
 
@@ -255,8 +285,9 @@ class TestString(TestCase):
         self.assertRaises(ValueError, setattr, o, 'attr', 'abcd')
 
     def test_max_length(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = libyate.type.String(max_length=3)
 
@@ -267,8 +298,9 @@ class TestString(TestCase):
         self.assertRaises(ValueError, setattr, o, 'attr', 'abcd')
 
     def test_min_length(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = libyate.type.String(min_length=3)
 
@@ -279,8 +311,9 @@ class TestString(TestCase):
         self.assertRaises(ValueError, setattr, o, 'attr', 'ab')
 
     def test_max_min_length(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = libyate.type.String(min_length=2, max_length=4)
 
@@ -297,6 +330,7 @@ class TestEncodedString(TestCase):
 
     __metaclass__ = TypeCaseMeta
 
+    # noinspection PyDocstring,PyPep8Naming
     class type_class(libyate.type.String):
         encoded = True
 
@@ -311,8 +345,9 @@ class TestEncodedString(TestCase):
     )
 
     def test_raises(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = self.type_class()
 
@@ -322,8 +357,9 @@ class TestEncodedString(TestCase):
         self.assertRaises(TypeError, setattr, o, 'attr', ('a',))
 
     def test_length(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = libyate.type.String(length=3)
 
@@ -337,8 +373,9 @@ class TestEncodedString(TestCase):
         self.assertRaises(ValueError, setattr, o, 'attr', 'abc%')
 
     def test_max_length(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = libyate.type.String(max_length=3)
 
@@ -352,8 +389,9 @@ class TestEncodedString(TestCase):
         self.assertRaises(ValueError, setattr, o, 'attr', 'abc%')
 
     def test_min_length(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = libyate.type.String(min_length=3)
 
@@ -367,8 +405,9 @@ class TestEncodedString(TestCase):
         self.assertRaises(ValueError, setattr, o, 'attr', 'a%')
 
     def test_max_min_length(self):
+        # noinspection PyDocstring
         class C(object):
-            __metaclass__ = libyate.type.TypeMeta
+            __metaclass__ = libyate.type.DescriptorMeta
 
             attr = libyate.type.String(min_length=2, max_length=4)
 
@@ -387,19 +426,26 @@ class TestEncodedString(TestCase):
 
 
 class TestOrderedDict(TestCase):
-    kvp = libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')))
+    kvp = libyate.type.OrderedDict(
+        (('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')))
 
     def test_from_tuple(self):
-        self.assertEqual(self.kvp, libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:'))))
+        self.assertEqual(self.kvp, libyate.type.OrderedDict(
+            (('job', 'cleanup'), ('job.done', '75%'),
+             ('path', '/bin:/usr/bin:'))))
 
     def test_from_list(self):
-        self.assertEqual(self.kvp, libyate.type.OrderedDict([['job', 'cleanup'], ['job.done', '75%'], ['path', '/bin:/usr/bin:']]))
+        self.assertEqual(self.kvp, libyate.type.OrderedDict(
+            [['job', 'cleanup'], ['job.done', '75%'],
+             ['path', '/bin:/usr/bin:']]))
 
-    def test_from_orddict(self):
+    def test_from_ordered_dict(self):
         self.assertEqual(self.kvp, libyate.type.OrderedDict(self.kvp))
 
     def test_repr(self):
-        self.assertEqual("libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')))", repr(self.kvp))
+        self.assertEqual("libyate.type.OrderedDict((('job', 'cleanup'), "
+                         "('job.done', '75%'), ('path', '/bin:/usr/bin:')))",
+                         repr(self.kvp))
 
     def test_len(self):
         self.assertEqual(3, len(self.kvp))
@@ -416,7 +462,8 @@ class TestOrderedDict(TestCase):
         self.assertNotEqual(id(self.kvp), id(new))
 
     def test_reversed(self):
-        self.assertEqual(list(reversed(self.kvp)), list(reversed(list(self.kvp))))
+        self.assertEqual(list(reversed(self.kvp)),
+                         list(reversed(list(self.kvp))))
 
     def test_delete(self):
         new = self.kvp.copy()
@@ -425,15 +472,22 @@ class TestOrderedDict(TestCase):
 
 
 class TestYateStatus(TestCase):
-    string = 'name=cdrbuild,type=cdr,format=Status|Caller|Called|BillId|Duration;cdrs=5,hungup=0;sip/4=answered|test|99991007|1403660477-4|12,sip/5=answered|test|99991007|1403660477-6|3,sip/6=answered|test|99991007|1403660477-8|2,sip/7=answered|test|99991007|1403660477-10|2,sip/8=answered|test|99991007|1403660477-12|2'
+    string = 'name=cdrbuild,type=cdr,format=Status|Caller|Called|BillId|' \
+             'Duration;cdrs=5,hungup=0;sip/4=answered|test|99991007|' \
+             '1403660477-4|12,sip/5=answered|test|99991007|1403660477-6|3,' \
+             'sip/6=answered|test|99991007|1403660477-8|2,sip/7=answered|' \
+             'test|99991007|1403660477-10|2,sip/8=answered|test|99991007|' \
+             '1403660477-12|2'
     obj = libyate.type.YateStatus(string)
 
     def test_repr(self):
-        self.assertEqual('<libyate.type.YateStatus "cdrbuild">', repr(self.obj))
+        self.assertEqual('<libyate.type.YateStatus "cdrbuild">',
+                         repr(self.obj))
 
     def test_attrs(self):
         self.assertEqual('cdrbuild', self.obj.definition['name'])
-        self.assertEqual('Status|Caller|Called|BillId|Duration', self.obj.definition['format'])
+        self.assertEqual('Status|Caller|Called|BillId|Duration',
+                         self.obj.definition['format'])
         self.assertEqual('5', self.obj.status['cdrs'])
         self.assertEqual(5, len(self.obj.nodes))
         self.assertEqual('1403660477-4', self.obj.nodes['sip/4']['BillId'])

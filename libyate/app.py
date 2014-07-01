@@ -2,160 +2,285 @@
 libyate - application code
 """
 
-import libyate
-import libyate.cmd
+import logging
+import Queue
+import signal
+import socket
+import sys
 
 from abc import ABCMeta, abstractmethod
+from threading import Thread
+
+import libyate.cmd
+import libyate.util
 
 
-class YateApp(object):
-    """Yate Application"""
+# noinspection PyBroadException
+class Application(object):
+    """Yate external module application
+
+    :param str name: Application name for logging purposes
+    """
 
     __metaclass__ = ABCMeta
 
     def __init__(self, name=None):
-        import logging
-        from Queue import Queue
 
-        # Instance name
         if name is None:
             self.__name__ = name or self.__class__.__name__
         else:
             self.__name__ = name
 
-        # Message handlers
         self.__msg_callback__ = {}
         self.__msg_handlers__ = {}
         self.__msg_watchers__ = {}
 
-        # Logger instance
+        self.__input_buffer__ = None
+        self.__input_queue__ = Queue.Queue()
+        self.__output_queue__ = Queue.Queue()
+
         self.logger = logging.getLogger(self.__name__)
 
-        # Input queue
-        self._input = Queue()
+    @abstractmethod
+    def readline(self):
+        """Get the next command from the engine
 
-        # Output queue
-        self._output = Queue()
+        :return: Command string
+        :rtype: str
+        :raise EOFError: on input exhaustion
+        :raise IOError: on Input/Output errors
+        """
 
+        pass
+
+    @abstractmethod
+    def write(self, string):
+        """Send command to the engine
+
+        :param str string: Command string to be sent
+        :raise IOError: on Input/Output errors
+        """
+
+        pass
+
+    @abstractmethod
+    def close(self):
+        """Close input and stop receiving commands"""
+
+        pass
+
+    @abstractmethod
     def run(self):
-        """User defined startup function"""
+        """User defined startup routine"""
 
     def start(self):
-        """Start main loop and wait for commands"""
+        """Module startup routine"""
 
         self.logger.info('Starting module')
 
-        import signal
-        from threading import Thread
-
-        # Register signals
-        signal.signal(signal.SIGINT, self.stop)
-        signal.signal(signal.SIGTERM, self.stop)
+        signal.signal(signal.SIGINT, lambda x, y: self.stop())
+        signal.signal(signal.SIGTERM, lambda x, y: self.stop())
 
         if hasattr(signal, 'CTRL_BREAK_EVENT'):
-            signal.signal(signal.CTRL_BREAK_EVENT, self.stop)
+            signal.signal(signal.CTRL_BREAK_EVENT, lambda x, y: self.stop())
         if hasattr(signal, 'CTRL_C_EVENT'):
-            signal.signal(signal.CTRL_C_EVENT, self.stop)
+            signal.signal(signal.CTRL_C_EVENT, lambda x, y: self.stop())
 
-        # Start the input handler thread
-        ti = Thread(target=self.on_input, name='InputThread')
+        self.__input_buffer__ = ''
+
+        ti = Thread(target=self._input, name='InputThread')
         ti.daemon = True
         ti.start()
 
-        # Start the output handler thread
-        to = Thread(target=self.on_output, name='OutputThread')
+        to = Thread(target=self._output, name='OutputThread')
         to.daemon = True
         to.start()
 
-        # Start the startup handler thread
-        ts = Thread(target=self.on_startup, name='StartupThread')
+        ts = Thread(target=self._startup, name='StartupThread')
         ts.daemon = True
         ts.start()
 
         # Main loop
         while True:
 
-            # Process incoming commands
             try:
-                cmd = self.receive()
+                cmd = self._receive()
 
-                # Interrupt on None
                 if not cmd:
                     break
 
-                # Start a new handler thread
-                Thread(target=self.on_command, args=(cmd, ),
-                                 name='{0}({1})'.format(
-                                     type(cmd).__name__, id(cmd))).start()
+                Thread(target=self._command, args=(cmd, ),
+                       name='{0}({1})'.format(
+                           type(cmd).__name__, id(cmd))).start()
 
-            # Log exceptions
             except:
                 self.logger.exception('Error processing command')
 
         self.logger.debug('Waiting for threads')
 
-    def stop(self, signum=None, frame=None):
+    def stop(self):
+        """Module shutdown routine"""
         self.logger.info('Stopping module')
 
-        # Try to close the input
         try:
             self.close()
         except:
             pass
 
-        # Stop input handler thread
         try:
-            self._input.put(None)
+            self.__input_queue__.put(None)
         except:
             pass
 
-        # Stop output handler thread
         try:
-            self._output.put(None)
+            self.__output_queue__.put(None)
         except:
             pass
 
-    @abstractmethod
-    def readline(self):
-        pass
+    def _command(self, cmd):
+        """Handler function for command handling threads
 
-    @abstractmethod
-    def write(self, string):
-        pass
+        :param libyate.cmd.Command cmd: A libyate Command object to process
+        """
 
-    @abstractmethod
-    def close(self):
-        pass
+        self.logger.debug('Received command: {0!r}'.format(cmd))
 
-    def receive(self):
-        from Queue import Empty
+        handler = {
+            libyate.cmd.Error: self._command_error,
+            libyate.cmd.InstallReply: self._command_install_reply,
+            libyate.cmd.Message: self._command_message,
+            libyate.cmd.MessageReply: self._command_message,
+            libyate.cmd.SetLocalReply: self._command_setlocal_reply,
+            libyate.cmd.UnInstallReply: self._command_uninstall_reply,
+            libyate.cmd.UnWatchReply: self._command_unwatch_reply,
+            libyate.cmd.WatchReply: self._command_watch_reply,
+        }.get(type(cmd))
 
-        while True:
-            try:
-                string = self._input.get(timeout=10)
-                self._input.task_done()
+        if handler is None:
+            self.logger.critical('No handler defined for "{0}" command'
+                                 .format(type(cmd).__name__))
 
-                if string is not None:
-                    return libyate.cmd_from_string(string)
+        try:
+            handler(cmd)
+        except:
+            self.logger.exception('Error processing command: {0}'
+                                  .format(cmd))
 
-                break
+    def _command_error(self, cmd):
+        """Handler function for Error commands
 
-            except Empty:
-                continue
+        :param libyate.cmd.Error cmd: A libyate Error object to process
+        """
 
-    def send(self, command):
-        self._output.put(str(command))
+        self.logger.error('Invalid command: {0}'.format(cmd.original))
 
-    def on_input(self):
-        """Input handler"""
+    def _command_install_reply(self, cmd):
+        """Handler function for InstallReply commands
+
+        :param libyate.cmd.InstallReply cmd: A libyate InstallReply object to
+            process
+        """
+
+        if cmd.success:
+            self.logger.info('Installed handler for "{0}"'
+                             .format(cmd.name))
+        else:
+            self.logger.error('Error installing handler for "{0}"'
+                              .format(cmd.name))
+
+    def _command_message(self, cmd):
+        """Handler function for Message and MessageReply commands
+
+        :param cmd: A libyate Message or MessageReply object
+            to process
+        :type cmd: libyate.cmd.Message or libyate.cmd.MessageReply
+        """
+
+        # Message from installed handlers
+        if isinstance(cmd, libyate.cmd.Message):
+            handler = self.__msg_handlers__[cmd.name]
+
+        # Reply from application generated message
+        elif cmd.id is not None:
+            handler = self.__msg_callback__.pop(cmd.id).callback
+
+        # Notification from installed watchers
+        else:
+            handler = self.__msg_watchers__[cmd.name]
+
+        self.logger.debug('Handler: {0}'.format(handler))
+
+        result = handler(cmd)
+        self.logger.debug('Result: {0}'.format(result))
+
+        if result is not None:
+            self._send(result)
+
+    def _command_setlocal_reply(self, cmd):
+        """Handler function for SetLocalReply commands
+
+        :param libyate.cmd.SetLocalReply cmd: A libyate SetLocalReply object to
+            process
+        """
+
+        if cmd.success:
+            self.logger.info('Parameter "{0}" set to: {1}'
+                             .format(cmd.name, cmd.value))
+        else:
+            self.logger.error('Error setting parameter "{0}"'
+                              .format(cmd.name))
+
+    def _command_uninstall_reply(self, cmd):
+        """Handler function for UninstallReply commands
+
+        :param libyate.cmd.UninstallReply cmd: A libyate UninstallReply object
+            to process
+        """
+
+        if cmd.success:
+            self.logger.info('Removed handler for "{0}"'
+                             .format(cmd.name))
+        else:
+            self.logger.error('Error removing handler for "{0}"'
+                              .format(cmd.name))
+
+    def _command_unwatch_reply(self, cmd):
+        """Handler function for UnwatchReply commands
+
+        :param libyate.cmd.UnwatchReply cmd: A libyate UnwatchReply object to
+            process
+        """
+
+        if cmd.success:
+            self.logger.info('Removed watcher for "{0}"'
+                             .format(cmd.name))
+        else:
+            self.logger.error('Error removing watcher for "{0}"'
+                              .format(cmd.name))
+
+    def _command_watch_reply(self, cmd):
+        """Handler function for WatchReply commands
+
+        :param libyate.cmd.WatchReply cmd: A libyate WatchReply object to
+            process
+        """
+
+        if cmd.success:
+            self.logger.info('Installed watcher for "{0}"'
+                             .format(cmd.name))
+        else:
+            self.logger.error('Error installing watcher for "{0}"'
+                              .format(cmd.name))
+
+    def _input(self):
+        """Handler function for the input handling thread"""
 
         self.logger.debug('Started input')
 
-        # Main loop
         while True:
 
             try:
-                self._input.put(self.readline())
+                self.__input_queue__.put(self.readline())
 
             # Interrupt on EOFError
             except EOFError:
@@ -171,32 +296,29 @@ class YateApp(object):
             except:
                 self.logger.exception('Error processing input')
 
-        # Stop module
+        # Shutdown module if the input handling thread stops
         self.stop()
 
-    def on_output(self):
-        """Output handler"""
-
-        from Queue import Empty
+    def _output(self):
+        """Handler function for the output handling thread"""
 
         self.logger.debug('Started output')
 
-        # Main loop
         while True:
 
-            # Send string to the engine
             try:
-
-                # Get next string from the queue
-                string = self._output.get(timeout=10)
-                self._output.task_done()
+                string = self.__output_queue__.get(timeout=10)
+                self.__output_queue__.task_done()
 
                 if string is None:
                     break
 
                 self.write(string)
 
-            except Empty:
+            except Queue.Empty:
+                # Loop until an item is available on the queue,
+                # the thread will not receive system signals if a timeout is
+                #   not specified
                 continue
 
             # Interrupt on IOError
@@ -208,108 +330,77 @@ class YateApp(object):
             except:
                 self.logger.exception('Error processing output')
 
-        # Stop module
+        # Shutdown module if the output handling thread stops
         self.stop()
 
-    def on_startup(self):
+    def _receive(self):
+        """Get the next command object from the input queue
+
+        :return: A command object
+        :rtype: libyate.cmd.Command
+        """
+
+        # Loop until an item is available on the queue, the thread will not
+        #   receive system signals if a timeout is not specified
+
+        while True:
+            try:
+                string = self.__input_queue__.get(timeout=10)
+                self.__input_queue__.task_done()
+
+                if string is not None:
+                    return libyate.util.cmd_from_string(string)
+
+                break
+
+            except Queue.Empty:
+                continue
+
+    def _send(self, command):
+        """Insert command into the output queue
+
+        :param libyate.cmd.Command command: A libyate Command object to send
+            to the engine
+        """
+
+        self.__output_queue__.put(str(command))
+
+    def _startup(self):
+        """Handler function for the startup handling thread"""
+
         try:
-            # Execute user code
             self.logger.debug('Executing user code')
             self.run()
 
+        # Shutdown module if user code raised an exception
         except:
             self.logger.exception('Error on module startup')
             self.stop()
 
-    def on_command(self, cmd):
-        """Command handler"""
-
-        self.logger.debug('Received command: {0!r}'.format(cmd))
-
-        try:
-            if isinstance(cmd, (libyate.cmd.Message,
-                                libyate.cmd.MessageReply)):
-
-                # Message from installed handlers
-                if isinstance(cmd, libyate.cmd.Message):
-                    handler = self.__msg_handlers__[cmd.name]
-
-                # Reply from application generated message
-                elif cmd.id is not None:
-                    handler = self.__msg_callback__.pop(cmd.id).callback
-
-                # Notification from installed watchers
-                else:
-                    handler = self.__msg_watchers__[cmd.name]
-
-                self.logger.debug('Handler: {0}'.format(handler))
-                result = handler(cmd)
-
-                self.logger.debug('Result: {0}'.format(result))
-                if result is not None:
-                    self.send(result)
-
-            elif isinstance(cmd, libyate.cmd.Error):
-                self.logger.error('Invalid command: {0}'
-                                  .format(cmd.original))
-
-            elif isinstance(cmd, libyate.cmd.InstallReply):
-                if cmd.success:
-                    self.logger.info('Installed handler for "{0}"'
-                                     .format(cmd.name))
-                else:
-                    self.logger.error('Error installing handler for "{0}"'
-                                      .format(cmd.name))
-
-            elif isinstance(cmd, libyate.cmd.SetLocalReply):
-                if cmd.success:
-                    self.logger.info('Parameter "{0}" set to: {1}'
-                                     .format(cmd.name, cmd.value))
-                else:
-                    self.logger.error('Error setting parameter "{0}"'
-                                      .format(cmd.name))
-
-            elif isinstance(cmd, libyate.cmd.UnInstallReply):
-                if cmd.success:
-                    self.logger.info('Removed handler for "{0}"'
-                                     .format(cmd.name))
-                else:
-                    self.logger.error('Error removing handler for "{0}"'
-                                      .format(cmd.name))
-
-            elif isinstance(cmd, libyate.cmd.UnWatchReply):
-                if cmd.success:
-                    self.logger.info('Removed watcher for "{0}"'
-                                     .format(cmd.name))
-                else:
-                    self.logger.error('Error removing watcher for "{0}"'
-                                      .format(cmd.name))
-
-            elif isinstance(cmd, libyate.cmd.WatchReply):
-                if cmd.success:
-                    self.logger.info('Installed watcher for "{0}"'
-                                     .format(cmd.name))
-                else:
-                    self.logger.error('Error installing watcher for "{0}"'
-                                      .format(cmd.name))
-
-            else:
-                self.logger.critical('No handler defined for "{0}" command'
-                                     .format(type(cmd).__name__))
-
-        except:
-            self.logger.exception('Error processing command: {0}'
-                                  .format(cmd))
-
+    # noinspection PyShadowingBuiltins
     def connect(self, role, id=None, type=None):
-        """Attach to a socket interface"""
+        """Attach to a socket interface
+
+        :param str role: role of this connection: global, channel, play,
+            record, playrec
+        :param str id: channel id to connect this socket to
+        :param str type: type of data channel, assuming audio if missing
+        """
 
         self.logger.info('Connecting as "{0}"'.format(role))
-        self.send(libyate.cmd.Connect(role, id, type))
+        self._send(libyate.cmd.Connect(role, id, type))
 
     def install(self, name, filter_name=None, filter_value=None, priority=None,
                 handler=lambda x: x.reply()):
-        """Install message handler"""
+        """Install message handler
+
+        :param str name: name of the messages for that a handler should be
+            installed
+        :param str filter_name: name of a variable the handler will filter
+        :param str filter_value: matching value for the filtered variable
+        :param str or int priority: priority in chain, default 100 if missing
+        :param function handler: handler function for received messages
+        """
 
         self.logger.info('Installing handler for "{0}"'.format(name))
 
@@ -318,12 +409,23 @@ class YateApp(object):
 
         self.__msg_handlers__[name] = handler
 
-        self.send(
+        self._send(
             libyate.cmd.Install(priority, name, filter_name, filter_value))
 
+    # noinspection PyShadowingBuiltins
     def message(self, name, retvalue=None, kvp=None, id=None, time=None,
                 callback=lambda x: None):
-        """Send message to the engine"""
+        """Send message to the engine
+
+        :param str name: name of the message
+        :param str retvalue: default textual return value of the message
+        :param kvp: enumeration of the key-value pairs of the message
+        :type kvp: dict or list or set or tuple or libyate.type.OrderedDict
+        :param str id: obscure unique message ID string generated by Yate
+        :param time: time (in seconds) the message was initially created
+        :type time: str or int or datetime.datetime
+        :param function callback: handler function for message reply
+        """
 
         msg = libyate.cmd.Message(id, time, name, retvalue, kvp)
         msg.callback = callback
@@ -335,16 +437,25 @@ class YateApp(object):
 
         self.__msg_callback__[msg.id] = msg
 
-        self.send(msg)
+        self._send(msg)
 
     def output(self, output):
-        """Log message"""
+        """Send messages to the engine logging output
+
+        :param str output: arbitrary unescaped string
+        """
 
         self.logger.debug('Sending output: {0}'.format(output))
-        self.send(libyate.cmd.Output(output))
+        self._send(libyate.cmd.Output(output))
 
     def set_local(self, name, value=None):
-        """Set or query local parameters"""
+        """Set or query local parameters
+
+        :param str name: name of the parameter to modify
+        :param value: new value to set in the local module instance, empty to
+            just query
+        :type value: str or int or bool
+        """
 
         if value:
             self.logger.info('Setting parameter "{0}" to: {1}'
@@ -352,28 +463,39 @@ class YateApp(object):
         else:
             self.logger.info('Querying parameter "{0}"'.format(name))
 
-        self.send(libyate.cmd.SetLocal(name, value))
+        self._send(libyate.cmd.SetLocal(name, value))
 
     def uninstall(self, name):
-        """Remove message handler"""
+        """Remove message handler
+
+        :param str name: name of the message handler that should be uninstalled
+        """
 
         self.logger.info('Removing handler for "{0}"'.format(name))
 
         self.__msg_handlers__.pop(name)
 
-        self.send(libyate.cmd.UnInstall(name))
+        self._send(libyate.cmd.UnInstall(name))
 
     def unwatch(self, name):
-        """Remove message watcher"""
+        """Remove message watcher
+
+        :param str name: name of the message watcher that should be uninstalled
+        """
 
         self.logger.debug('Removing watcher for "{0}"'.format(name))
 
         self.__msg_watchers__.pop(name)
 
-        self.send(libyate.cmd.UnWatch(name))
+        self._send(libyate.cmd.UnWatch(name))
 
     def watch(self, name, handler=lambda x: None):
-        """Install message watcher"""
+        """Install message watcher
+
+        :param str name: name of the messages for that a watcher should be
+            installed
+        :param function handler: handler function for received notifications
+        """
 
         self.logger.debug('Installing watcher for "{0}"'.format(name))
 
@@ -382,14 +504,85 @@ class YateApp(object):
 
         self.__msg_watchers__[name] = handler
 
-        self.send(libyate.cmd.Watch(name))
+        self._send(libyate.cmd.Watch(name))
 
 
-class YateExtClient(YateApp):
-    """Yate external module socket client"""
+# noinspection PyBroadException
+class Script(Application):
+    """Yate external module script"""
+
+    def readline(self):
+        """Get the next command from the engine
+
+        :return: Command string
+        :rtype: str
+        :raise EOFError: on input exhaustion
+        :raise IOError: on input/output errors
+        """
+
+        while '\n' not in self.__input_buffer__:
+
+            try:
+                data = sys.stdin.readline(8192)
+            except ValueError as e:
+                raise IOError(str(e))
+
+            if data:
+                self.__input_buffer__ += data
+
+            else:
+                raise EOFError('Received EOF')
+
+        string, self.__input_buffer__ = \
+            self.__input_buffer__.partition('\n')[::2]
+
+        self.logger.debug('Received {0} bytes: {1}'
+                          .format(len(string.encode()), string))
+
+        return string
+
+    def write(self, string):
+        """Send command to the engine
+
+        :param str string: Command string to be sent
+        :raise IOError: on input/output errors
+        """
+
+        self.logger.debug('Sending {0} bytes: {1}'
+                          .format(len(string.encode()), string))
+
+        try:
+            sys.stdout.write(string + '\n')
+
+        except ValueError as e:
+            raise IOError(str(e))
+
+        else:
+            sys.stdout.flush()
+
+    def close(self):
+        """Close input and stop receiving commands"""
+
+        sys.stdin.close()
+
+    @abstractmethod
+    def run(self):
+        """User defined startup routine"""
+
+
+# noinspection PyBroadException
+class SocketClient(Application):
+    """Yate external module socket client
+
+    :param str host_or_path: Yate listener host address or path to the Yate
+        listener unix socket
+    :param int port: Yate listener port number
+    :param str name: Application name for logging purposes
+    """
 
     def __init__(self, host_or_path, port=None, name=None):
-        super(YateExtClient, self).__init__(name)
+
+        super(SocketClient, self).__init__(name)
 
         if host_or_path is None:
             raise ValueError('Either a host or a path must be specified')
@@ -400,29 +593,24 @@ class YateExtClient(YateApp):
         self._port = port
 
         self._socket = None
-        self._recv_buff = None
 
     def start(self):
+        """Module startup routine"""
 
         # Try to connect the socket
         try:
 
             # UNIX socket
             if self._host_or_path[0] in ['.', '/']:
-                from socket import socket
-                from socket import AF_UNIX, SOCK_STREAM
-
-                self._socket = socket(family=AF_UNIX)
+                self._socket = socket.socket(family=socket.AF_UNIX)
                 self._socket.connect(self._host_or_path)
 
             # INET/INET6 socket
             else:
-                from socket import socket, getaddrinfo, error
-                from socket import AF_UNSPEC, SOCK_STREAM, IPPROTO_TCP
-
                 # Get protocols and addresses
-                l = getaddrinfo(self._host_or_path, self._port, AF_UNSPEC,
-                                SOCK_STREAM, IPPROTO_TCP)
+                l = socket.getaddrinfo(
+                    self._host_or_path, self._port,
+                    socket.AF_UNSPEC, socket.SOCK_STREAM, socket.IPPROTO_TCP)
 
                 while l:
 
@@ -431,10 +619,10 @@ class YateExtClient(YateApp):
 
                     # Try to create the socket
                     try:
-                        self._socket = socket(f, t, p)
+                        self._socket = socket.socket(f, t, p)
 
                     # Error creating the socket
-                    except error:
+                    except socket.error:
 
                         # Try next resource
                         if l:
@@ -448,7 +636,7 @@ class YateExtClient(YateApp):
                         self._socket.connect(a)
 
                     # Error connecting to the address
-                    except error:
+                    except socket.error:
                         self._socket.close()
 
                         # Try next resource
@@ -468,43 +656,49 @@ class YateExtClient(YateApp):
         # Socket connected, continue startup
         else:
 
-            # Clean receive buffer
-            self._recv_buff = ''
-
             # Main loop
-            super(YateExtClient, self).start()
+            super(SocketClient, self).start()
 
             # Close socket
             self._socket.close()
 
     def readline(self):
-        from socket import error
+        """Get the next command from the engine
+
+        :return: Command string
+        :rtype: str
+        :raise EOFError: on input exhaustion
+        :raise IOError: on input/output errors
+        """
 
         # Continue receiving until '\n' is received
-        while '\n' not in self._recv_buff:
+        while '\n' not in self.__input_buffer__:
 
             try:
                 data = self._socket.recv(8192)
-            except error as e:
+            except socket.error as e:
                 raise IOError(str(e))
 
-            # Append received data to the buffer
             if data:
-                self._recv_buff += data
+                self.__input_buffer__ += data
 
-            # No data received (socket has been closed)
             else:
                 raise EOFError('Socket closed')
 
-        # Get the received command and leave any additional data on the buffer
-        string, self._recv_buff = self._recv_buff.partition('\n')[::2]
+        string, self.__input_buffer__ = \
+            self.__input_buffer__.partition('\n')[::2]
 
         self.logger.debug('Received {0} bytes: {1}'
                           .format(len(string.encode()), string))
+
         return string
 
     def write(self, string):
-        from socket import error
+        """Send command to the engine
+
+        :param str string: Command string to be sent
+        :raise IOError: on input/output errors
+        """
 
         self.logger.debug('Sending {0} bytes: {1}'
                           .format(len(string.encode()), string))
@@ -512,54 +706,15 @@ class YateExtClient(YateApp):
         try:
             self._socket.sendall(string + '\n')
 
-        except error as e:
+        except socket.error as e:
             raise IOError(str(e))
 
     def close(self):
-        from socket import SHUT_RD
+        """Close input and stop receiving commands"""
 
         # Close socket for read operations
-        self._socket.shutdown(SHUT_RD)
+        self._socket.shutdown(socket.SHUT_RD)
 
-
-class YateExtScript(YateApp):
-    """Yate external module script"""
-
-    def readline(self):
-        from sys import stdin
-
-        try:
-            string = stdin.readline(8192)
-
-        except ValueError as e:
-            raise IOError(str(e))
-
-        if string:
-            string = string.rstrip('\n')
-            self.logger.debug('Received {0} bytes: {1}'
-                              .format(len(string.encode()), string))
-            return string
-
-        else:
-            raise EOFError('Received EOF')
-
-    def write(self, string):
-        from sys import stdout
-
-        self.logger.debug('Sending {0} bytes: {1}'
-                          .format(len(string.encode()), string))
-
-        try:
-            stdout.write(string + '\n')
-
-        except ValueError as e:
-            raise IOError(str(e))
-
-        else:
-            # Flush buffer
-            stdout.flush()
-
-    def close(self):
-        from sys import stdin
-
-        stdin.close()
+    @abstractmethod
+    def run(self):
+        """User defined startup routine"""

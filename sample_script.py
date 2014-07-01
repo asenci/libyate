@@ -6,7 +6,8 @@ Sample application to test libyate
 import libyate.app
 
 
-class MyApp(libyate.app.YateExtScript):
+# noinspection PyDocstring,PyUnusedLocal
+class MyApp(libyate.app.Script):
     def run(self):
         # Query engine version
         self.set_local('engine.version')

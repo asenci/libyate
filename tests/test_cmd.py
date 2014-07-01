@@ -2,9 +2,9 @@
 Test cases for libyate.cmd
 """
 
-import libyate
 import libyate.cmd
 import libyate.type
+import libyate.util
 
 from datetime import datetime
 from unittest import TestCase
@@ -14,8 +14,9 @@ from unittest import TestCase
 # Meta classes
 #
 
+# noinspection PyDocstring,PyUnresolvedReferences
 class CmdCaseMeta(type):
-    """Meta class for YateCmd test cases"""
+    """Meta class for Command test cases"""
 
     def __new__(mcs, name, bases, attrs):
         # Get command class
@@ -27,7 +28,7 @@ class CmdCaseMeta(type):
         if cmd_class is None:
             attrs['test_cmd_abstract_raise'] = \
                 lambda self: \
-                self.assertRaises(TypeError, libyate.cmd.YateCmd)
+                self.assertRaises(TypeError, libyate.cmd.Command)
 
         for n, (s, d) in enumerate(strings):
             def test_cmd_from_string(cmd_obj, string):
@@ -51,8 +52,7 @@ class CmdCaseMeta(type):
                 return lambda self: self.assertEqual(
                     value, getattr(cmd_obj, key))
 
-
-            cmd = libyate.cmd_from_string(s)
+            cmd = libyate.util.cmd_from_string(s)
 
             attrs['test_cmd_from_string_%s' % n] = test_cmd_from_string(cmd, s)
             attrs['test_cmd_from_repr_%s' % n] = test_cmd_from_repr(cmd)
@@ -79,27 +79,35 @@ class TestYateCmd(TestCase):
     strings = ()
 
     def test_cmd_from_string_raise(self):
-        self.assertRaises(NotImplementedError, libyate.cmd_from_string,
+        self.assertRaises(NotImplementedError, libyate.util.cmd_from_string,
                           '%%>invalid_method:false')
 
     def test_cmd_no_keyword_raise(self):
-        class C(libyate.cmd.YateCmd):
+        # noinspection PyDocstring
+        class C(libyate.cmd.Command):
             def __init__(self):
-                pass
+                super(C, self).__init__()
 
         cmd = C()
         self.assertRaises(NotImplementedError, str, cmd)
 
     def test_cmd_neq(self):
-        c1 = libyate.cmd_from_string('%%>connect:test')
-        c2 = libyate.cmd_from_string('%%>connect:test2')
+        c1 = libyate.util.cmd_from_string('%%>connect:test')
+        c2 = libyate.util.cmd_from_string('%%>connect:test2')
         self.assertNotEqual(c1, c2)
 
     def test_cmd_repr(self):
-        self.assertEqual("libyate.cmd.Message('myapp55251%', datetime.datetime(2004, 9, 13, 21, 59, 54), 'app.job:', None, libyate.type.OrderedDict((('path', '/bin:/usr/bin'), ('job', 'cleanup'), ('done', '75%'))))", repr(libyate.cmd_from_string('%%>message:myapp55251%%:1095112794:app.job%z::path=/bin%z/usr/bin:job=cleanup:done=75%%')))
+        self.assertEqual("libyate.cmd.Message('myapp55251%', datetime.datetime"
+                         "(2004, 9, 13, 21, 59, 54), 'app.job:', None, libyate"
+                         ".type.OrderedDict((('path', '/bin:/usr/bin'), ('job'"
+                         ", 'cleanup'), ('done', '75%'))))",
+                         repr(libyate.util.cmd_from_string(
+                             '%%>message:myapp55251%%:1095112794:app.job%z::'
+                             'path=/bin%z/usr/bin:job=cleanup:done=75%%')))
 
     def test_cmd_unicode(self):
-        self.assertTrue(isinstance(unicode(libyate.cmd_from_string('%%>connect:test')), unicode))
+        self.assertTrue(isinstance(unicode(
+            libyate.util.cmd_from_string('%%>connect:test')), unicode))
 
 
 class TestYateCmdConnect(TestCase):
@@ -109,8 +117,10 @@ class TestYateCmdConnect(TestCase):
     strings = (
         ('%%>connect:test::', dict(role='test')),
         ('%%>connect:test:1234:', dict(role='test', id='1234')),
-        ('%%>connect:test:anyid:audio', dict(role='test', id='anyid', type='audio')),
-        ('%%>connect:test%%:anyid%z:audio%}', dict(role='test%', id='anyid:', type='audio=')),
+        ('%%>connect:test:any_id:audio',
+         dict(role='test', id='any_id', type='audio')),
+        ('%%>connect:test%%:any_id%z:audio%}',
+         dict(role='test%', id='any_id:', type='audio=')),
     )
 
     def test_cmd_from_kwargs_raise(self):
@@ -123,7 +133,8 @@ class TestYateCmdError(TestCase):
 
     cmd_class = libyate.cmd.Error
     strings = (
-        ('Error in:%%>install::engine.timer', dict(original='%%>install::engine.timer')),
+        ('Error in:%%>install::engine.timer',
+         dict(original='%%>install::engine.timer')),
     )
 
     def test_cmd_from_kwargs_raise(self):
@@ -138,9 +149,14 @@ class TestYateCmdInstall(TestCase):
     strings = (
         ('%%>install::test::', dict(name='test')),
         ('%%>install:50:test::', dict(priority=50, name='test')),
-        ('%%>install:50:test:filter:', dict(priority=50, name='test', filter_name='filter')),
-        ('%%>install:50:test:filter:value', dict(priority=50, name='test', filter_name='filter', filter_value='value')),
-        ('%%>install:50:test%%:filter%z:value%}', dict(priority=50, name='test%', filter_name='filter:', filter_value='value=')),
+        ('%%>install:50:test:filter:',
+         dict(priority=50, name='test', filter_name='filter')),
+        ('%%>install:50:test:filter:value',
+         dict(priority=50, name='test', filter_name='filter',
+              filter_value='value')),
+        ('%%>install:50:test%%:filter%z:value%}',
+         dict(priority=50, name='test%', filter_name='filter:',
+              filter_value='value=')),
     )
 
     def test_cmd_from_kwargs_raise(self):
@@ -155,18 +171,24 @@ class TestYateCmdInstallReply(TestCase):
 
     cmd_class = libyate.cmd.InstallReply
     strings = (
-        ('%%<install:100:test:true', dict(priority=100, name='test', success=True)),
-        ('%%<install:100:test:false', dict(priority=100, name='test', success=False)),
-        ('%%<install:100:test%%:false', dict(priority=100, name='test%', success=False)),
+        ('%%<install:100:test:true',
+         dict(priority=100, name='test', success=True)),
+        ('%%<install:100:test:false',
+         dict(priority=100, name='test', success=False)),
+        ('%%<install:100:test%%:false',
+         dict(priority=100, name='test%', success=False)),
     )
 
     def test_cmd_from_kwargs_raise(self):
         self.assertRaises(TypeError, self.cmd_class, TestCase)
         self.assertRaises(ValueError, self.cmd_class, '')
         self.assertRaises(ValueError, self.cmd_class, priority=100, name='')
-        self.assertRaises(ValueError, self.cmd_class, priority=100, name='test', success='')
-        self.assertRaises(ValueError, self.cmd_class, priority='ok', name='test', success=True)
-        self.assertRaises(ValueError, self.cmd_class, priority=100, name='test', success='no')
+        self.assertRaises(ValueError, self.cmd_class, priority=100,
+                          name='test', success='')
+        self.assertRaises(ValueError, self.cmd_class, priority='ok',
+                          name='test', success=True)
+        self.assertRaises(ValueError, self.cmd_class, priority=100,
+                          name='test', success='no')
 
 
 class TestYateCmdMessage(TestCase):
@@ -174,11 +196,27 @@ class TestYateCmdMessage(TestCase):
 
     cmd_class = libyate.cmd.Message
     strings = (
-        ('%%>message:234479288:1095112796:engine.timer::', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer')),
-        ('%%>message:234479288:1095112796:engine.timer:ok:', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer', retvalue='ok')),
-        ('%%>message:234479288:1095112796:engine.timer:ok:time=1095112796', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer', retvalue='ok', kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
-        ('%%>message:234479288:1095112796:engine.timer::time=1095112796', dict(id='234479288', time=datetime.utcfromtimestamp(1095112796), name='engine.timer', kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
-        ('%%>message:myapp55251%%:1095112794:app.job%z::job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z', dict(id='myapp55251%', time=datetime.utcfromtimestamp(1095112794), name='app.job:', kvp=libyate.type.OrderedDict((('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:'))))),
+        ('%%>message:234479288:1095112796:engine.timer::',
+         dict(id='234479288', time=datetime.utcfromtimestamp(1095112796),
+              name='engine.timer')),
+        ('%%>message:234479288:1095112796:engine.timer:ok:',
+         dict(id='234479288', time=datetime.utcfromtimestamp(1095112796),
+              name='engine.timer', retvalue='ok')),
+        ('%%>message:234479288:1095112796:engine.timer:ok:time=1095112796',
+         dict(id='234479288', time=datetime.utcfromtimestamp(1095112796),
+              name='engine.timer', retvalue='ok',
+              kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
+        ('%%>message:234479288:1095112796:engine.timer::time=1095112796',
+         dict(id='234479288', time=datetime.utcfromtimestamp(1095112796),
+              name='engine.timer',
+              kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
+        ('%%>message:myapp55251%%:1095112794:app.job%z::job=cleanup:job.done='
+         '75%%:path=/bin%z/usr/bin%z',
+         dict(id='myapp55251%', time=datetime.utcfromtimestamp(1095112794),
+              name='app.job:',
+              kvp=libyate.type.OrderedDict(
+                  (('job', 'cleanup'), ('job.done', '75%'),
+                   ('path', '/bin:/usr/bin:'))))),
     )
 
     def test_cmd_from_kwargs_raise(self):
@@ -198,14 +236,32 @@ class TestYateCmdMessageReply(TestCase):
 
     cmd_class = libyate.cmd.MessageReply
     strings = (
-        ('%%<message:234479208:false:::', dict(id='234479208', processed=False)),
-        ('%%<message:234479208:false:engine.timer::', dict(id='234479208', processed=False, name='engine.timer')),
-        ('%%<message:234479208:false:engine.timer:ok:', dict(id='234479208', processed=False, name='engine.timer', retvalue='ok')),
-        ('%%<message:234479208:false:engine.timer:ok:time=1095112796', dict(id='234479208', processed=False, name='engine.timer', retvalue='ok', kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
-        ('%%<message:234479208:false::ok:time=1095112796', dict(id='234479208', processed=False, retvalue='ok', kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
-        ('%%<message:234479208:false:::time=1095112796', dict(id='234479208', processed=False, kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
-        ('%%<message:234479208:false:engine.timer::time=1095112796', dict(id='234479208', processed=False, name='engine.timer', kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
-        ('%%<message:myapp55251%%:true:app.job%z:Restart required%}:path=/bin%z/usr/bin%z/usr/local/bin', dict(id='myapp55251%', processed=True, name='app.job:', retvalue='Restart required=', kvp=libyate.type.OrderedDict((('path', '/bin:/usr/bin:/usr/local/bin'),)))),
+        ('%%<message:234479208:false:::',
+         dict(id='234479208', processed=False)),
+        ('%%<message:234479208:false:engine.timer::',
+         dict(id='234479208', processed=False, name='engine.timer')),
+        ('%%<message:234479208:false:engine.timer:ok:',
+         dict(id='234479208', processed=False, name='engine.timer',
+              retvalue='ok')),
+        ('%%<message:234479208:false:engine.timer:ok:time=1095112796',
+         dict(id='234479208', processed=False, name='engine.timer',
+              retvalue='ok',
+              kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
+        ('%%<message:234479208:false::ok:time=1095112796',
+         dict(id='234479208', processed=False, retvalue='ok',
+              kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
+        ('%%<message:234479208:false:::time=1095112796',
+         dict(id='234479208', processed=False,
+              kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
+        ('%%<message:234479208:false:engine.timer::time=1095112796',
+         dict(id='234479208', processed=False, name='engine.timer',
+              kvp=libyate.type.OrderedDict((('time', '1095112796'),)))),
+        ('%%<message:myapp55251%%:true:app.job%z:Restart required%}:path='
+         '/bin%z/usr/bin%z/usr/local/bin',
+         dict(id='myapp55251%', processed=True, name='app.job:',
+              retvalue='Restart required=',
+              kvp=libyate.type.OrderedDict(
+                  (('path', '/bin:/usr/bin:/usr/local/bin'),)))),
     )
 
     def test_cmd_from_kwargs_raise(self):
@@ -220,7 +276,8 @@ class TestYateCmdOutput(TestCase):
 
     cmd_class = libyate.cmd.Output
     strings = (
-        ('%%>output:arbitrary unescaped string%%', dict(output='arbitrary unescaped string%%')),
+        ('%%>output:arbitrary unescaped string%%',
+         dict(output='arbitrary unescaped string%%')),
     )
 
     def test_cmd_from_kwargs_raise(self):
@@ -248,16 +305,20 @@ class TestYateCmdSetLocalReply(TestCase):
 
     cmd_class = libyate.cmd.SetLocalReply
     strings = (
-        ('%%<setlocal:test:true:true', dict(name='test', value='true', success=True)),
-        ('%%<setlocal:test%%:true%z:true', dict(name='test%', value='true:', success=True)),
+        ('%%<setlocal:test:true:true',
+         dict(name='test', value='true', success=True)),
+        ('%%<setlocal:test%%:true%z:true',
+         dict(name='test%', value='true:', success=True)),
     )
 
     def test_cmd_from_kwargs_raise(self):
         self.assertRaises(TypeError, self.cmd_class, TestCase, success='true')
         self.assertRaises(ValueError, self.cmd_class, '')
         self.assertRaises(ValueError, self.cmd_class, name='test')
-        self.assertRaises(ValueError, self.cmd_class, name='test', value='true')
-        self.assertRaises(ValueError, self.cmd_class, name='test', value='true', success='ok')
+        self.assertRaises(ValueError, self.cmd_class, name='test',
+                          value='true')
+        self.assertRaises(ValueError, self.cmd_class, name='test',
+                          value='true', success='ok')
 
 
 class TestYateCmdUnInstall(TestCase):
@@ -279,18 +340,24 @@ class TestYateCmdUnInstallReply(TestCase):
 
     cmd_class = libyate.cmd.UnInstallReply
     strings = (
-        ('%%<uninstall:100:test:true', dict(priority=100, name='test', success=True)),
-        ('%%<uninstall:100:test:false', dict(priority=100, name='test', success=False)),
-        ('%%<uninstall:100:test%%:false', dict(priority=100, name='test%', success=False)),
+        ('%%<uninstall:100:test:true',
+         dict(priority=100, name='test', success=True)),
+        ('%%<uninstall:100:test:false',
+         dict(priority=100, name='test', success=False)),
+        ('%%<uninstall:100:test%%:false',
+         dict(priority=100, name='test%', success=False)),
     )
 
     def test_cmd_from_kwargs_raise(self):
         self.assertRaises(TypeError, self.cmd_class, TestCase)
         self.assertRaises(ValueError, self.cmd_class, '')
         self.assertRaises(ValueError, self.cmd_class, priority=100, name='')
-        self.assertRaises(ValueError, self.cmd_class, priority=100, name='test', success='')
-        self.assertRaises(ValueError, self.cmd_class, priority='ok', name='test', success=True)
-        self.assertRaises(ValueError, self.cmd_class, priority=100, name='test', success='no')
+        self.assertRaises(ValueError, self.cmd_class, priority=100,
+                          name='test', success='')
+        self.assertRaises(ValueError, self.cmd_class, priority='ok',
+                          name='test', success=True)
+        self.assertRaises(ValueError, self.cmd_class, priority=100,
+                          name='test', success='no')
 
 
 class TestYateCmdUnWatch(TestCase):
@@ -321,7 +388,8 @@ class TestYateCmdUnWatchReply(TestCase):
         self.assertRaises(TypeError, self.cmd_class, TestCase)
         self.assertRaises(ValueError, self.cmd_class, '')
         self.assertRaises(ValueError, self.cmd_class, name='test', success='')
-        self.assertRaises(ValueError, self.cmd_class, name='test', success='no')
+        self.assertRaises(ValueError, self.cmd_class, name='test',
+                          success='no')
 
 
 class TestYateCmdWatch(TestCase):
@@ -352,4 +420,5 @@ class TestYateCmdWatchReply(TestCase):
         self.assertRaises(TypeError, self.cmd_class, TestCase)
         self.assertRaises(ValueError, self.cmd_class, '')
         self.assertRaises(ValueError, self.cmd_class, name='test', success='')
-        self.assertRaises(ValueError, self.cmd_class, name='test', success='no')
+        self.assertRaises(ValueError, self.cmd_class, name='test',
+                          success='no')

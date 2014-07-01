@@ -6,7 +6,8 @@ Sample application to test libyate
 import libyate.app
 
 
-class MyApp(libyate.app.YateExtClient):
+# noinspection PyDocstring,PyUnusedLocal
+class MyApp(libyate.app.SocketClient):
     def run(self):
         # Connect to the engine
         self.connect('global')

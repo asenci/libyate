@@ -4,19 +4,22 @@ libyate - custom types and descriptors
 
 from abc import ABCMeta, abstractmethod
 from collections import MutableMapping
+from datetime import datetime
+
+import libyate.util
 
 
 #
 # Custom types
 #
 
-# noinspection PyCallByClass,PyTypeChecker
 class OrderedDict(MutableMapping, dict):
     """Dictionary that remembers insertion order. Useful for editing XML files
     and config files where there are (key, value) pairs but the original order
     should be preserved.
     http://code.activestate.com/recipes/576669/"""
 
+    # noinspection PyMissingConstructor
     def __init__(self, seq=(), **kwargs):
         if not hasattr(self, '_keys'):
             self._keys = []
@@ -52,11 +55,16 @@ class OrderedDict(MutableMapping, dict):
             tuple(tuple((k, v)) for k, v in self.items()))
 
     def copy(self):
+        """D.copy() -> a shallow copy of D"""
+
         return self.__class__(self)
 
 
 class YateStatus(object):
+    """Object representing an Yate status message"""
+
     def __init__(self, string):
+        """:param str string: string to decode"""
 
         # Definition, status and nodes groups are separated by ';'
         definition, status = string.partition(';')[::2]
@@ -87,13 +95,13 @@ class YateStatus(object):
 # Meta classes
 #
 
-class TypeMeta(ABCMeta):
+class DescriptorMeta(ABCMeta):
     """Metaclass for classes with descriptor declarations"""
 
     def __new__(mcs, name, bases, attrs):
-        # Define attribute name for BaseType instances
+        # Define attribute name for Descriptor instances
         for attr_name, attr_value in attrs.items():
-            if isinstance(attr_value, BaseType):
+            if isinstance(attr_value, Descriptor):
                 attr_value.__name__ = attr_name
 
         # Get all attributes from class and its base classes
@@ -106,19 +114,21 @@ class TypeMeta(ABCMeta):
 
         # Build a sorted list of all descriptors
         attrs['__descriptors__'] = sorted(
-            filter(lambda x: isinstance(x, BaseType),
-                   (v for k, v in all_attrs.items())),
+            [v for k, v in all_attrs.items() if isinstance(v, Descriptor)],
             key=lambda x: x.__instance_number__)
 
-        return super(TypeMeta, mcs).__new__(mcs, name, bases, attrs)
+        return super(DescriptorMeta, mcs).__new__(mcs, name, bases, attrs)
 
 
 #
 # Descriptors
 #
 
-class BaseType(object):
+class Descriptor(object):
+    """Base descriptor
 
+    :param bool blank: Allow value to be None
+    """
     __count__ = 0
 
     blank = False
@@ -127,8 +137,8 @@ class BaseType(object):
         if blank is not None:
             self.blank = blank
 
-        self.__instance_number__ = BaseType.__count__
-        BaseType.__count__ += 1
+        self.__instance_number__ = Descriptor.__count__
+        Descriptor.__count__ += 1
 
     def __repr__(self):
         return '<{0}.{1} "{2}">'.format(
@@ -168,18 +178,45 @@ class BaseType(object):
 
     @abstractmethod
     def format(self, value):
+        """Format value before assignment
+
+        :param object value: value to be formatted
+        :return: formatted value
+        :rtype: object
+
+        :raise: ValueError: if value is not acceptable
+        :raise: TypeError: if value type is not acceptable
+        """
+
         return value
 
     def to_string(self, instance):
-        from libyate.util import yate_str
+        """Convert value into string
+
+        :param object instance: object instance where the value is stored
+        :return: string representing the object
+        :rtype: str
+        """
 
         if instance:
-            return yate_str(self.__get__(instance, instance.__class__))
+            return libyate.util.yate_str(
+                self.__get__(instance, instance.__class__))
 
 
-class Boolean(BaseType):
+class Boolean(Descriptor):
+    """Descriptor representing a boolean value"""
 
     def format(self, value):
+        """Format value before assignment
+
+        :param value: value to be formatted
+        :type value: str or bool
+        :return: boolean
+        :rtype: bool
+        :raise ValueError: if string is not "true" or "false"
+        :raise TypeError: if value type is not acceptable
+        """
+
         if value in [None, '']:
             return
 
@@ -196,13 +233,21 @@ class Boolean(BaseType):
         raise TypeError
 
 
-class DateTime(BaseType):
+class DateTime(Descriptor):
+    """Descriptor representing a datetime object"""
 
     def format(self, value):
+        """Format value before assignment
+
+        :param value: value to be formatted
+        :type value: str or int or datetime.datetime
+        :return: a datetime object
+        :rtype: datetime.datetime
+        :raise ValueError: if the string or integer are not a valid timestamp
+        :raise TypeError: if value type is not acceptable
+        """
         if value in [None, '']:
             return
-
-        from datetime import datetime
 
         if isinstance(value, datetime):
             return value
@@ -219,9 +264,19 @@ class DateTime(BaseType):
         raise TypeError
 
 
-class Integer(BaseType):
+class Integer(Descriptor):
+    """Descriptor representing an integer"""
 
     def format(self, value):
+        """Format value before assignment
+
+        :param value: value to be formatted
+        :type value: str or int
+        :return: an integer
+        :rtype: int
+        :raise ValueError: if the string is not a valid integer
+        :raise TypeError: if value type is not acceptable
+        """
         if value in [None, '']:
             return
 
@@ -238,10 +293,20 @@ class Integer(BaseType):
         raise TypeError
 
 
-class KeyValueList(BaseType):
+class KeyValueList(Descriptor):
+    """Descriptor representing an ordered dictionary"""
 
     def format(self, value):
-        from libyate.util import yate_decode
+        """Format value before assignment
+
+        :param value: value to be formatted
+        :type value: dict or list or set or tuple or OrderedDict
+        :return: an OrderedDict object
+        :rtype: OrderedDict
+        :raise ValueError: if the string is not a valid key-value enumeration
+        :raise ValueError: if any key in the key-value pair are empty
+        :raise TypeError: if value type is not acceptable
+        """
 
         if value in [None, '']:
             return
@@ -259,14 +324,23 @@ class KeyValueList(BaseType):
                 if k == '':
                     raise ValueError('Key on key-value pair cannot be empty')
 
-                result.append((yate_decode(k), yate_decode(v)))
+                result.append((libyate.util.yate_decode(k),
+                               libyate.util.yate_decode(v)))
 
             return OrderedDict(result)
 
         raise TypeError
 
 
-class String(BaseType):
+class String(Descriptor):
+    """Descriptor representing a string
+
+    :param bool blank: Allow value to be None or ''
+    :param bool encoded: Format string as a Yate encoded (up-coded) string
+    :param int length: String length
+    :param int min_length: String minimal length
+    :param int max_length: String maximal length
+    """
 
     encoded = False
     length = None
@@ -293,6 +367,16 @@ class String(BaseType):
                 self.max_length = max_length
 
     def format(self, value):
+        """Format value before assignment
+
+        :param value: value to be formatted
+        :type value: bool or int or datetime.datetime or str
+        :return: a string
+        :rtype: str
+        :raise ValueError: if the string length is not acceptable
+        :raise TypeError: if value type is not acceptable
+        """
+
         if value in [None, '']:
             return
 
@@ -302,11 +386,8 @@ class String(BaseType):
         elif isinstance(value, int):
             value = str(value)
 
-        else:
-            from datetime import datetime
-            if isinstance(value, datetime):
-                value = str(int((value - datetime(1970, 1, 1))
-                                .total_seconds()))
+        elif isinstance(value, datetime):
+            value = libyate.util.timestamp_as_str(value)
 
         if isinstance(value, (str, unicode)):
             if value or self.blank:
@@ -322,11 +403,16 @@ class String(BaseType):
         raise TypeError
 
     def to_string(self, instance):
-        from libyate.util import yate_encode
+        """Encode string
+
+        :param object instance: object instance where the value is stored
+        :return: encoded (Yate up-coded) string
+        :rtype: str
+        """
 
         result = super(String, self).to_string(instance)
 
         if self.encoded:
-            return yate_encode(result)
+            return libyate.util.yate_encode(result)
         else:
             return result

@@ -13,7 +13,7 @@ class TestYateEncodeDecode(TestCase):
         ('', ''),
     )
 
-    for i in range(32):
+    for i in xrange(32):
         strings += (('%{0:c}'.format(i+64), chr(i)),)
 
     def test_decode_raise(self):
@@ -26,17 +26,21 @@ class TestYateEncodeDecode(TestCase):
         self.assertRaises(Exception, yate_encode, True)
 
 for n, (e, d) in enumerate(TestYateEncodeDecode.strings):
-    def test_decode_ok(e, d):
-        return lambda self: self.assertEqual(yate_decode(e), d)
+    # noinspection PyDocstring
+    def test_decode_ok(enc, dec):
+        return lambda self: self.assertEqual(yate_decode(enc), dec)
 
-    def test_decode_nok(e, d):
-        return lambda self: self.assertNotEqual(yate_decode(e), d + 'z')
+    # noinspection PyDocstring
+    def test_decode_nok(enc, dec):
+        return lambda self: self.assertNotEqual(yate_decode(enc), dec + 'z')
 
-    def test_encode_ok(e, d):
-        return lambda self: self.assertEqual(yate_encode(d), e)
+    # noinspection PyDocstring
+    def test_encode_ok(enc, dec):
+        return lambda self: self.assertEqual(yate_encode(dec), enc)
 
-    def test_encode_nok(e, d):
-        return lambda self: self.assertNotEqual(yate_encode(d), e + 'z')
+    # noinspection PyDocstring
+    def test_encode_nok(enc, dec):
+        return lambda self: self.assertNotEqual(yate_encode(dec), enc + 'z')
 
     setattr(TestYateEncodeDecode, 'test_decode_ok_%s' % n,
             test_decode_ok(e, d))
