@@ -3,6 +3,9 @@
 Sample application to test libyate
 """
 
+import logging
+import optparse
+
 import libyate.app
 
 
@@ -49,11 +52,8 @@ class MyApp(libyate.app.SocketClient):
 
 
 if __name__ == '__main__':
-
-    import logging
-    from optparse import OptionParser
-
-    parser = OptionParser('usage: %prog [options] <host or path> [port]')
+    parser = optparse.OptionParser(
+        'usage: %prog [options] <host or path> [port]')
     parser.add_option('-d', '--debug', action='store_true', default=False,
                       help='increase logging verbosity')
     parser.add_option('-q', '--quiet', action='store_true', default=False,
