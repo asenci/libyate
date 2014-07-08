@@ -8,14 +8,17 @@ import libyate
 
 
 setup(
-    name='libyate',
-    url='https://bitbucket.org/asenci/libyate',
-    license='ISC License',
-    author='Andre Sencioles Vitorio Oliveira',
-    author_email='andre@bcp.net.br',
-    description='Python library for developing Yate external applications',
-    long_description='A more "pythonic" approach to Yate.',
+    name=libyate.__title__,
+    description=libyate.__summary__,
+    long_description=open("README.rst").read(),
+    url=libyate.__url__,
+
+    author=libyate.__author__,
+    author_email=libyate.__email__,
+    license=libyate.__license__,
+
     version=libyate.__version__,
+
     packages=['libyate'],
     test_suite="tests",
     platforms='any',

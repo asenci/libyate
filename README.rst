@@ -1,92 +1,96 @@
-# Python library for developing Yate external applications
+=======
+libyate
+=======
 
-A more "pythonic" approach to Yate.
-
-
-## Sample script application:
-
-
-### extmodule.conf
-
-``` cfg
-[scripts]
-sample.py=-d
-```
+Python library for developing Yate external applications
 
 
-### sample.py
+Sample script application:
+--------------------------
 
-``` python
-#!/usr/bin/env python
-"""
-Sample application to test libyate
-"""
+* extmodule.conf
 
-import libyate.app
+.. code-block:: cfg
 
-
-class MyApp(libyate.app.Script):
-    def run(self):
-        # Query engine version
-        self.set_local('engine.version')
-
-        # Install handler for "call.route"
-        self.install('call.route', priority=50, handler=self.call_route)
-
-        # Install watcher for "engine.timer"
-        self.watch('engine.timer', handler=self.timer)
-
-        # Send a message to the engine
-        self.message(name='myapp.test', id='somerandomid',
-                     kvp={'testing': True,
-                          'done': '75%',
-                          'path': '/bin:/usr/bin'},
-                     callback=self.reply)
-
-        from time import sleep
-        sleep(1)
-        self.unwatch('engine.timer')
-
-    def call_route(self, msg):
-        self.logger.info('Handling "call.route": {0!r}'.format(msg))
-
-        # Just reply with processed = False
-        return msg.reply()
-
-    def reply(self, msg):
-        self.logger.info('Got reply for "{0}"'.format(msg.id))
-
-    def timer(self, msg):
-        self.logger.info('Some periodic routine')
+    [scripts]
+    sample.py=-d
 
 
-if __name__ == '__main__':
+* sample.py
 
-    import logging
-    from optparse import OptionParser
+.. code-block:: python
 
-    parser = OptionParser()
-    parser.add_option('-d', '--debug', action='store_true', default=False,
-                      help='increase logging verbosity')
-    parser.add_option('-q', '--quiet', action='store_true', default=False,
-                      help='reduce the logging verbosity')
-    options, _ = parser.parse_args()
+    #!/usr/bin/env python
+    """
+    Sample application to test libyate
+    """
 
-    log_format = \
-        '%(asctime)s <%(name)s[%(threadName)s]:%(levelname)s> %(message)s'
-
-    logging.basicConfig(**{
-        'level': (logging.DEBUG if options.debug else
-                  logging.WARN if options.quiet else
-                  logging.INFO),
-        'format': log_format,
-    })
-
-    MyApp('sample.py').start()
-```
+    import libyate.app
 
 
-### Output:
+    class MyApp(libyate.app.Script):
+        def run(self):
+            # Query engine version
+            self.set_local('engine.version')
+
+            # Install handler for "call.route"
+            self.install('call.route', priority=50, handler=self.call_route)
+
+            # Install watcher for "engine.timer"
+            self.watch('engine.timer', handler=self.timer)
+
+            # Send a message to the engine
+            self.message(name='myapp.test', id='somerandomid',
+                         kvp={'testing': True,
+                              'done': '75%',
+                              'path': '/bin:/usr/bin'},
+                         callback=self.reply)
+
+            from time import sleep
+            sleep(1)
+            self.unwatch('engine.timer')
+
+        def call_route(self, msg):
+            self.logger.info('Handling "call.route": {0!r}'.format(msg))
+
+            # Just reply with processed = False
+            return msg.reply()
+
+        def reply(self, msg):
+            self.logger.info('Got reply for "{0}"'.format(msg.id))
+
+        def timer(self, msg):
+            self.logger.info('Some periodic routine')
+
+
+    if __name__ == '__main__':
+
+        import logging
+        from optparse import OptionParser
+
+        parser = OptionParser()
+        parser.add_option('-d', '--debug', action='store_true', default=False,
+                          help='increase logging verbosity')
+        parser.add_option('-q', '--quiet', action='store_true', default=False,
+                          help='reduce the logging verbosity')
+        options, _ = parser.parse_args()
+
+        log_format = \
+            '%(asctime)s <%(name)s[%(threadName)s]:%(levelname)s> %(message)s'
+
+        logging.basicConfig(**{
+            'level': (logging.DEBUG if options.debug else
+                      logging.WARN if options.quiet else
+                      logging.INFO),
+            'format': log_format,
+        })
+
+        MyApp('sample.py').start()
+
+
+* Output:
+
+::
 
     2014-07-01 10:37:05,753 <sample.py[MainThread]:INFO> Starting module
     2014-07-01 10:37:05,753 <sample.py[InputThread]:DEBUG> Started input
@@ -129,102 +133,105 @@ if __name__ == '__main__':
     2014-07-01 10:37:12,644 <sample.py[MainThread]:DEBUG> Waiting for threads
 
 
-## Sample socket client application:
+Sample socket client application:
+---------------------------------
+
+* extmodule.conf
+
+.. code-block:: cfg
+
+    [listener sample]
+    type=unix
+    path=/tmp/sample.sock
 
 
-### extmodule.conf
+* sample.py
 
-``` cfg
-[listener sample]
-type=unix
-path=/tmp/sample.sock
-```
+.. code-block:: python
 
+    #!/usr/bin/env python
+    """
+    Sample application to test libyate
+    """
 
-### sample.py
-
-``` python
-#!/usr/bin/env python
-"""
-Sample application to test libyate
-"""
-
-import libyate.app
+    import libyate.app
 
 
-class MyApp(libyate.app.SocketClient):
-    def run(self):
-        # Connect to the engine
-        self.connect('global')
+    class MyApp(libyate.app.SocketClient):
+        def run(self):
+            # Connect to the engine
+            self.connect('global')
 
-        # Send message to the engine
-        self.output('Starting sample.py')
+            # Send message to the engine
+            self.output('Starting sample.py')
 
-        # Query engine version
-        self.set_local('engine.version')
+            # Query engine version
+            self.set_local('engine.version')
 
-        # Install handler for "call.route"
-        self.install('call.route', priority=50, handler=self.call_route)
+            # Install handler for "call.route"
+            self.install('call.route', priority=50, handler=self.call_route)
 
-        # Install watcher for "engine.timer"
-        self.watch('engine.timer', handler=self.timer)
+            # Install watcher for "engine.timer"
+            self.watch('engine.timer', handler=self.timer)
 
-        # Send a message to the engine
-        self.message(name='myapp.test', id='somerandomid',
-                     kvp={'testing': True,
-                          'done': '75%',
-                          'path': '/bin:/usr/bin'},
-                     callback=self.reply)
+            # Send a message to the engine
+            self.message(name='myapp.test', id='somerandomid',
+                         kvp={'testing': True,
+                              'done': '75%',
+                              'path': '/bin:/usr/bin'},
+                         callback=self.reply)
 
-        from time import sleep
-        sleep(1)
-        self.unwatch('engine.timer')
+            from time import sleep
+            sleep(1)
+            self.unwatch('engine.timer')
 
-    def call_route(self, msg):
-        self.logger.info('Handling "call.route": {0!r}'.format(msg))
+        def call_route(self, msg):
+            self.logger.info('Handling "call.route": {0!r}'.format(msg))
 
-        # Just reply with processed = False
-        return msg.reply()
+            # Just reply with processed = False
+            return msg.reply()
 
-    def reply(self, msg):
-        self.logger.info('Got reply for "{0}"'.format(msg.id))
+        def reply(self, msg):
+            self.logger.info('Got reply for "{0}"'.format(msg.id))
 
-    def timer(self, msg):
-        self.logger.info('Some periodic routine')
-
-
-if __name__ == '__main__':
-
-    import logging
-    from optparse import OptionParser
-
-    parser = OptionParser('usage: %prog [options] <host or path> [port]')
-    parser.add_option('-d', '--debug', action='store_true', default=False,
-                      help='increase logging verbosity')
-    parser.add_option('-q', '--quiet', action='store_true', default=False,
-                      help='reduce the logging verbosity')
-
-    options, args = parser.parse_args()
-
-    if len(args) < 1:
-        parser.error('either a host or a path must be specified')
-
-    log_format = \
-        '%(asctime)s <%(name)s[%(threadName)s]:%(levelname)s> %(message)s'
-
-    logging.basicConfig(**{
-        'level': (logging.DEBUG if options.debug else
-                  logging.WARN if options.quiet else
-                  logging.INFO),
-        'format': log_format,
-    })
-
-    MyApp(*args, name='sample.py').start()
-```
+        def timer(self, msg):
+            self.logger.info('Some periodic routine')
 
 
-### Expected output:
-    $ sample.py -d /tmp/sample.sock 
+    if __name__ == '__main__':
+
+        import logging
+        from optparse import OptionParser
+
+        parser = OptionParser('usage: %prog [options] <host or path> [port]')
+        parser.add_option('-d', '--debug', action='store_true', default=False,
+                          help='increase logging verbosity')
+        parser.add_option('-q', '--quiet', action='store_true', default=False,
+                          help='reduce the logging verbosity')
+
+        options, args = parser.parse_args()
+
+        if len(args) < 1:
+            parser.error('either a host or a path must be specified')
+
+        log_format = \
+            '%(asctime)s <%(name)s[%(threadName)s]:%(levelname)s> %(message)s'
+
+        logging.basicConfig(**{
+            'level': (logging.DEBUG if options.debug else
+                      logging.WARN if options.quiet else
+                      logging.INFO),
+            'format': log_format,
+        })
+
+        MyApp(*args, name='sample.py').start()
+
+
+* Expected output:
+
+::
+
+    $ sample.py -d /tmp/sample.sock
     2014-07-01 10:38:33,722 <sample.py[MainThread]:INFO> Starting module
     2014-07-01 10:38:33,723 <sample.py[InputThread]:DEBUG> Started input
     2014-07-01 10:38:33,723 <sample.py[OutputThread]:DEBUG> Started output
@@ -271,7 +278,8 @@ if __name__ == '__main__':
     2014-07-01 10:38:41,853 <sample.py[InputThread]:INFO> Stopping module
 
 
-## Licensing:
+Licensing:
+----------
 
 Licensed under ISC license:
 

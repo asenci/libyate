@@ -17,4 +17,14 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 """
 
+
+__title__ = 'libyate'
+__summary__ = 'Python library for developing Yate external applications'
+__url__ = 'http://bitbucket.org/asenci/libyate'
+
 __version__ = '1.0'
+
+__author__ = 'Andre Sencioles Vitorio Oliveira'
+__email__ = 'andre@bcp.net.br'
+
+__license__ = 'ISC License'
