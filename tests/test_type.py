@@ -34,8 +34,8 @@ class TypeCaseMeta(type):
             def test_value_repr(obj, val, rep, st):
                 def test(self):
                     setattr(obj, 'attr', val)
-                    self.assertEqual(rep, obj.__dict__['attr'])
-                    self.assertEqual(st, C.attr.to_string(o))
+                    self.assertEqual(obj.__dict__['attr'], rep)
+                    self.assertEqual(C.attr.to_string(o), st)
 
                 return test
 
@@ -78,7 +78,7 @@ class TestBaseType(TestCase):
 
             attr = self.type_class()
 
-        self.assertEqual('<libyate.type.Descriptor "attr">', repr(C.attr))
+        self.assertEqual(repr(C.attr), '<libyate.type.Descriptor "attr">')
 
     def test_delete(self):
         # noinspection PyDocstring
@@ -235,12 +235,12 @@ class TestKeyValueList(TestCase):
         kvp = KVP()
         kvp.kvp = 'job=cleanup:job.done=75%%:path=/bin%z/usr/bin%z'
 
-        self.assertEqual(libyate.type.OrderedDict(
+        self.assertEqual(kvp.__dict__['kvp'], libyate.type.OrderedDict(
             (('job', 'cleanup'), ('job.done', '75%'),
-             ('path', '/bin:/usr/bin:'))), kvp.__dict__['kvp'])
-        self.assertEqual('cleanup', kvp.kvp['job'])
-        self.assertEqual('75%', kvp.kvp['job.done'])
-        self.assertEqual('/bin:/usr/bin:', kvp.kvp['path'])
+             ('path', '/bin:/usr/bin:'))))
+        self.assertEqual(kvp.kvp['job'], 'cleanup')
+        self.assertEqual(kvp.kvp['job.done'], '75%')
+        self.assertEqual(kvp.kvp['path'], '/bin:/usr/bin:')
 
 
 class TestString(TestCase):
@@ -430,35 +430,35 @@ class TestOrderedDict(TestCase):
         (('job', 'cleanup'), ('job.done', '75%'), ('path', '/bin:/usr/bin:')))
 
     def test_from_tuple(self):
-        self.assertEqual(self.kvp, libyate.type.OrderedDict(
+        self.assertEqual(libyate.type.OrderedDict(
             (('job', 'cleanup'), ('job.done', '75%'),
-             ('path', '/bin:/usr/bin:'))))
+             ('path', '/bin:/usr/bin:'))), self.kvp)
 
     def test_from_list(self):
-        self.assertEqual(self.kvp, libyate.type.OrderedDict(
+        self.assertEqual(libyate.type.OrderedDict(
             [['job', 'cleanup'], ['job.done', '75%'],
-             ['path', '/bin:/usr/bin:']]))
+             ['path', '/bin:/usr/bin:']]), self.kvp)
 
     def test_from_ordered_dict(self):
-        self.assertEqual(self.kvp, libyate.type.OrderedDict(self.kvp))
+        self.assertEqual(libyate.type.OrderedDict(self.kvp), self.kvp)
 
     def test_repr(self):
-        self.assertEqual("libyate.type.OrderedDict((('job', 'cleanup'), "
-                         "('job.done', '75%'), ('path', '/bin:/usr/bin:')))",
-                         repr(self.kvp))
+        self.assertEqual(repr(self.kvp), "libyate.type.OrderedDict((('job', 'c"
+                                         "leanup'), job.done', '75%'), ('path'"
+                                         ", '/bin:/usr/bin:')))")
 
     def test_len(self):
-        self.assertEqual(3, len(self.kvp))
+        self.assertEqual(len(self.kvp), 3)
 
     def test_access(self):
-        self.assertEqual('cleanup', self.kvp['job'])
-        self.assertEqual('75%', self.kvp['job.done'])
-        self.assertEqual('/bin:/usr/bin:', self.kvp['path'])
+        self.assertEqual(self.kvp['job'], 'cleanup')
+        self.assertEqual(self.kvp['job.done'], '75%')
+        self.assertEqual(self.kvp['path'], '/bin:/usr/bin:')
         self.assertRaises(KeyError, self.kvp.__getitem__, 'a')
 
     def test_copy(self):
         new = self.kvp.copy()
-        self.assertEqual(self.kvp, new)
+        self.assertEqual(new, self.kvp)
         self.assertNotEqual(id(self.kvp), id(new))
 
     def test_reversed(self):
@@ -481,17 +481,17 @@ class TestYateStatus(TestCase):
     obj = libyate.type.YateStatus(string)
 
     def test_repr(self):
-        self.assertEqual('<libyate.type.YateStatus "cdrbuild">',
-                         repr(self.obj))
+        self.assertEqual(repr(self.obj),
+                         '<libyate.type.YateStatus "cdrbuild">')
 
     def test_attrs(self):
-        self.assertEqual('cdrbuild', self.obj.definition['name'])
-        self.assertEqual('Status|Caller|Called|BillId|Duration',
-                         self.obj.definition['format'])
-        self.assertEqual('5', self.obj.status['cdrs'])
-        self.assertEqual(5, len(self.obj.nodes))
-        self.assertEqual('1403660477-4', self.obj.nodes['sip/4']['BillId'])
-        self.assertEqual('99991007', self.obj.nodes['sip/4']['Called'])
-        self.assertEqual('test', self.obj.nodes['sip/4']['Caller'])
-        self.assertEqual('12', self.obj.nodes['sip/4']['Duration'])
-        self.assertEqual('answered', self.obj.nodes['sip/4']['Status'])
+        self.assertEqual(self.obj.definition['name'], 'cdrbuild')
+        self.assertEqual(self.obj.definition['format'],
+                         'Status|Caller|Called|BillId|Duration')
+        self.assertEqual(self.obj.status['cdrs'], '5')
+        self.assertEqual(len(self.obj.nodes), 5)
+        self.assertEqual(self.obj.nodes['sip/4']['BillId'], '1403660477-4')
+        self.assertEqual(self.obj.nodes['sip/4']['Called'], '99991007')
+        self.assertEqual(self.obj.nodes['sip/4']['Caller'], 'test')
+        self.assertEqual(self.obj.nodes['sip/4']['Duration'], '12')
+        self.assertEqual(self.obj.nodes['sip/4']['Status'], 'answered')

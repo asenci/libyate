@@ -240,7 +240,7 @@ class DateTime(Descriptor):
         """Format value before assignment
 
         :param value: value to be formatted
-        :type value: str or int or datetime.datetime
+        :type value: str, int or datetime.datetime
         :return: a datetime object
         :rtype: datetime.datetime
         :raise ValueError: if the string or integer are not a valid timestamp
@@ -300,7 +300,7 @@ class KeyValueList(Descriptor):
         """Format value before assignment
 
         :param value: value to be formatted
-        :type value: dict or list or set or tuple or OrderedDict
+        :type value: dict, list, set, tuple or OrderedDict
         :return: an OrderedDict object
         :rtype: OrderedDict
         :raise ValueError: if the string is not a valid key-value enumeration
@@ -370,7 +370,7 @@ class String(Descriptor):
         """Format value before assignment
 
         :param value: value to be formatted
-        :type value: bool or int or datetime.datetime or str
+        :type value: bool, int, datetime.datetime or str
         :return: a string
         :rtype: str
         :raise ValueError: if the string length is not acceptable

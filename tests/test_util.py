@@ -28,7 +28,7 @@ class TestYateEncodeDecode(TestCase):
 for n, (e, d) in enumerate(TestYateEncodeDecode.strings):
     # noinspection PyDocstring
     def test_decode_ok(enc, dec):
-        return lambda self: self.assertEqual(yate_decode(enc), dec)
+        return lambda self: self.assertEqual(dec, yate_decode(enc))
 
     # noinspection PyDocstring
     def test_decode_nok(enc, dec):
@@ -36,7 +36,7 @@ for n, (e, d) in enumerate(TestYateEncodeDecode.strings):
 
     # noinspection PyDocstring
     def test_encode_ok(enc, dec):
-        return lambda self: self.assertEqual(yate_encode(dec), enc)
+        return lambda self: self.assertEqual(enc, yate_encode(dec))
 
     # noinspection PyDocstring
     def test_encode_nok(enc, dec):

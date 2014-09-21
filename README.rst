@@ -10,7 +10,7 @@ Sample script application:
 
 * extmodule.conf
 
-.. code-block:: cfg
+.. sourcecode:: cfg
 
     [scripts]
     sample.py=-d
@@ -18,7 +18,7 @@ Sample script application:
 
 * sample.py
 
-.. code-block:: python
+.. sourcecode:: python
 
     #!/usr/bin/env python
     """
@@ -138,7 +138,7 @@ Sample socket client application:
 
 * extmodule.conf
 
-.. code-block:: cfg
+.. sourcecode:: cfg
 
     [listener sample]
     type=unix
@@ -147,7 +147,7 @@ Sample socket client application:
 
 * sample.py
 
-.. code-block:: python
+.. sourcecode:: python
 
     #!/usr/bin/env python
     """

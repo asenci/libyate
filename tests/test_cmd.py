@@ -32,7 +32,7 @@ class CmdCaseMeta(type):
 
         for n, (s, d) in enumerate(strings):
             def test_cmd_from_string(cmd_obj, string):
-                return lambda self: self.assertEqual(string, str(cmd_obj))
+                return lambda self: self.assertEqual(str(cmd_obj), string)
 
             def test_cmd_from_repr(cmd_obj):
                 def test(self):
@@ -40,17 +40,17 @@ class CmdCaseMeta(type):
                     import libyate.cmd
                     import libyate.type
 
-                    self.assertEqual(cmd_obj, eval(repr(cmd_obj)))
+                    self.assertEqual(eval(repr(cmd_obj)), cmd_obj)
 
                 return test
 
             def test_cmd_from_kwargs(cmd_obj, kwargs):
                 return lambda self: self.assertEqual(
-                    cmd_obj, self.cmd_class(**kwargs))
+                    self.cmd_class(**kwargs), cmd_obj)
 
             def test_cmd_desc(cmd_obj, key, value):
                 return lambda self: self.assertEqual(
-                    value, getattr(cmd_obj, key))
+                    getattr(cmd_obj, key), value)
 
             cmd = libyate.util.cmd_from_string(s)
 
@@ -97,13 +97,14 @@ class TestYateCmd(TestCase):
         self.assertNotEqual(c1, c2)
 
     def test_cmd_repr(self):
-        self.assertEqual("libyate.cmd.Message('myapp55251%', datetime.datetime"
+        self.assertEqual(repr(
+            libyate.util.cmd_from_string('%%>message:myapp55251%%:1095112794:a'
+                                         'pp.job%z::path=/bin%z/usr/bin:job=cl'
+                                         'eanup:done=75%%')),
+                         "libyate.cmd.Message('myapp55251%', datetime.datetime"
                          "(2004, 9, 13, 21, 59, 54), 'app.job:', None, libyate"
                          ".type.OrderedDict((('path', '/bin:/usr/bin'), ('job'"
-                         ", 'cleanup'), ('done', '75%'))))",
-                         repr(libyate.util.cmd_from_string(
-                             '%%>message:myapp55251%%:1095112794:app.job%z::'
-                             'path=/bin%z/usr/bin:job=cleanup:done=75%%')))
+                         ", 'cleanup'), ('done', '75%'))))")
 
     def test_cmd_unicode(self):
         self.assertTrue(isinstance(unicode(
