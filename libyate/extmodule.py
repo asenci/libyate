@@ -1,5 +1,5 @@
 """
-libyate - application code
+libyate - external module application code
 """
 
 import logging
@@ -11,8 +11,7 @@ import sys
 from abc import ABCMeta, abstractmethod
 from threading import Thread
 
-import libyate.cmd
-import libyate.util
+import libyate.engine
 
 
 # noinspection PyBroadException
@@ -146,14 +145,14 @@ class Application(object):
         self.logger.debug('Received command: {0!r}'.format(cmd))
 
         handler = {
-            libyate.cmd.Error: self._command_error,
-            libyate.cmd.InstallReply: self._command_install_reply,
-            libyate.cmd.Message: self._command_message,
-            libyate.cmd.MessageReply: self._command_message,
-            libyate.cmd.SetLocalReply: self._command_setlocal_reply,
-            libyate.cmd.UnInstallReply: self._command_uninstall_reply,
-            libyate.cmd.UnWatchReply: self._command_unwatch_reply,
-            libyate.cmd.WatchReply: self._command_watch_reply,
+            libyate.engine.Error: self._command_error,
+            libyate.engine.InstallReply: self._command_install_reply,
+            libyate.engine.Message: self._command_message,
+            libyate.engine.MessageReply: self._command_message,
+            libyate.engine.SetLocalReply: self._command_setlocal_reply,
+            libyate.engine.UnInstallReply: self._command_uninstall_reply,
+            libyate.engine.UnWatchReply: self._command_unwatch_reply,
+            libyate.engine.WatchReply: self._command_watch_reply,
         }.get(type(cmd))
 
         if handler is None:
@@ -196,7 +195,7 @@ class Application(object):
         """
 
         # Message from installed handlers
-        if isinstance(cmd, libyate.cmd.Message):
+        if isinstance(cmd, libyate.engine.Message):
             handler = self.__msg_handlers__[cmd.name]
 
         # Reply from application generated message
@@ -348,7 +347,7 @@ class Application(object):
                 self.__input_queue__.task_done()
 
                 if string is not None:
-                    return libyate.util.cmd_from_string(string)
+                    return libyate.engine.Command.from_string(string)
 
                 break
 
@@ -387,7 +386,7 @@ class Application(object):
         """
 
         self.logger.info('Connecting as "{0}"'.format(role))
-        self._send(libyate.cmd.Connect(role, id, type))
+        self._send(libyate.engine.Connect(role, id, type))
 
     def install(self, name, filter_name=None, filter_value=None, priority=None,
                 handler=lambda x: x.reply()):
@@ -409,7 +408,7 @@ class Application(object):
         self.__msg_handlers__[name] = handler
 
         self._send(
-            libyate.cmd.Install(priority, name, filter_name, filter_value))
+            libyate.engine.Install(priority, name, filter_name, filter_value))
 
     # noinspection PyShadowingBuiltins
     def message(self, name, retvalue=None, kvp=None, id=None, time=None,
@@ -426,7 +425,7 @@ class Application(object):
         :param function callback: handler function for message reply
         """
 
-        msg = libyate.cmd.Message(id, time, name, retvalue, kvp)
+        msg = libyate.engine.Message(id, time, name, retvalue, kvp)
         msg.callback = callback
 
         self.logger.debug('Sending message to the engine: {0!r}'.format(msg))
@@ -445,7 +444,7 @@ class Application(object):
         """
 
         self.logger.debug('Sending output: {0}'.format(output))
-        self._send(libyate.cmd.Output(output))
+        self._send(libyate.engine.Output(output))
 
     def set_local(self, name, value=None):
         """Set or query local parameters
@@ -462,7 +461,7 @@ class Application(object):
         else:
             self.logger.info('Querying parameter "{0}"'.format(name))
 
-        self._send(libyate.cmd.SetLocal(name, value))
+        self._send(libyate.engine.SetLocal(name, value))
 
     def uninstall(self, name):
         """Remove message handler
@@ -474,7 +473,7 @@ class Application(object):
 
         self.__msg_handlers__.pop(name)
 
-        self._send(libyate.cmd.UnInstall(name))
+        self._send(libyate.engine.UnInstall(name))
 
     def unwatch(self, name):
         """Remove message watcher
@@ -486,7 +485,7 @@ class Application(object):
 
         self.__msg_watchers__.pop(name)
 
-        self._send(libyate.cmd.UnWatch(name))
+        self._send(libyate.engine.UnWatch(name))
 
     def watch(self, name, handler=lambda x: None):
         """Install message watcher
@@ -503,7 +502,7 @@ class Application(object):
 
         self.__msg_watchers__[name] = handler
 
-        self._send(libyate.cmd.Watch(name))
+        self._send(libyate.engine.Watch(name))
 
 
 # noinspection PyBroadException

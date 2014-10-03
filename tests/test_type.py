@@ -30,7 +30,7 @@ class TypeCaseMeta(type):
 
         o = C()
 
-        for n, (v, r, s) in enumerate(values):
+        for i, (v, r, s) in enumerate(values):
             def test_value_repr(obj, val, rep, st):
                 def test(self):
                     setattr(obj, 'attr', val)
@@ -46,7 +46,7 @@ class TypeCaseMeta(type):
 
                 return test
 
-            attrs['test_value_repr_%s' % n] = test_value_repr(o, v, r, s)
+            attrs['test_value_repr_%s' % i] = test_value_repr(o, v, r, s)
             attrs['test_blank'] = test_blank(o)
 
         return super(TypeCaseMeta, mcs).__new__(mcs, name, bases, attrs)
@@ -55,6 +55,56 @@ class TypeCaseMeta(type):
 #
 # Test cases
 #
+
+class TestYateEncodeDecode(TestCase):
+    strings = (
+        ('75%%', '75%'),
+        ('x%zz', 'x:z'),
+        ('', ''),
+    )
+
+    for i in xrange(32):
+        strings += (('%{0:c}'.format(i+64), chr(i)),)
+
+    def test_decode_raise(self):
+        self.assertRaises(Exception, libyate.type.yate_decode, '%%%')
+        self.assertRaises(Exception, libyate.type.yate_decode, '%0')
+
+    def test_encode_raise(self):
+        self.assertRaises(Exception, libyate.type.yate_encode, None)
+        self.assertRaises(Exception, libyate.type.yate_encode, 1)
+        self.assertRaises(Exception, libyate.type.yate_encode, True)
+
+for n, (e, d) in enumerate(TestYateEncodeDecode.strings):
+    # noinspection PyDocstring
+    def test_decode_ok(enc, dec):
+        return lambda self: self.assertEqual(dec,
+                                             libyate.type.yate_decode(enc))
+
+    # noinspection PyDocstring
+    def test_decode_nok(enc, dec):
+        return lambda self: self.assertNotEqual(libyate.type.yate_decode(enc),
+                                                dec + 'z')
+
+    # noinspection PyDocstring
+    def test_encode_ok(enc, dec):
+        return lambda self: self.assertEqual(enc,
+                                             libyate.type.yate_encode(dec))
+
+    # noinspection PyDocstring
+    def test_encode_nok(enc, dec):
+        return lambda self: self.assertNotEqual(libyate.type.yate_encode(dec),
+                                                enc + 'z')
+
+    setattr(TestYateEncodeDecode, 'test_decode_ok_%s' % n,
+            test_decode_ok(e, d))
+    setattr(TestYateEncodeDecode, 'test_decode_nok_%s' % n,
+            test_decode_nok(e, d))
+    setattr(TestYateEncodeDecode, 'test_encode_ok_%s' % n,
+            test_encode_ok(e, d))
+    setattr(TestYateEncodeDecode, 'test_encode_nok_%s' % n,
+            test_encode_nok(e, d))
+
 
 class TestBaseType(TestCase):
 
@@ -330,10 +380,7 @@ class TestEncodedString(TestCase):
 
     __metaclass__ = TypeCaseMeta
 
-    # noinspection PyDocstring,PyPep8Naming
-    class type_class(libyate.type.String):
-        encoded = True
-
+    type_class = libyate.type.EncodedString
     values = (
         ('', None, ''),
         ('a', 'a', 'a'),
@@ -444,8 +491,8 @@ class TestOrderedDict(TestCase):
 
     def test_repr(self):
         self.assertEqual(repr(self.kvp), "libyate.type.OrderedDict((('job', 'c"
-                                         "leanup'), job.done', '75%'), ('path'"
-                                         ", '/bin:/usr/bin:')))")
+                                         "leanup'), ('job.done', '75%'), ('pat"
+                                         "h', '/bin:/usr/bin:')))")
 
     def test_len(self):
         self.assertEqual(len(self.kvp), 3)
@@ -470,28 +517,28 @@ class TestOrderedDict(TestCase):
         del new['job']
         self.assertRaises(KeyError, new.__getitem__, 'job')
 
-
-class TestYateStatus(TestCase):
-    string = 'name=cdrbuild,type=cdr,format=Status|Caller|Called|BillId|' \
-             'Duration;cdrs=5,hungup=0;sip/4=answered|test|99991007|' \
-             '1403660477-4|12,sip/5=answered|test|99991007|1403660477-6|3,' \
-             'sip/6=answered|test|99991007|1403660477-8|2,sip/7=answered|' \
-             'test|99991007|1403660477-10|2,sip/8=answered|test|99991007|' \
-             '1403660477-12|2'
-    obj = libyate.type.YateStatus(string)
-
-    def test_repr(self):
-        self.assertEqual(repr(self.obj),
-                         '<libyate.type.YateStatus "cdrbuild">')
-
-    def test_attrs(self):
-        self.assertEqual(self.obj.definition['name'], 'cdrbuild')
-        self.assertEqual(self.obj.definition['format'],
-                         'Status|Caller|Called|BillId|Duration')
-        self.assertEqual(self.obj.status['cdrs'], '5')
-        self.assertEqual(len(self.obj.nodes), 5)
-        self.assertEqual(self.obj.nodes['sip/4']['BillId'], '1403660477-4')
-        self.assertEqual(self.obj.nodes['sip/4']['Called'], '99991007')
-        self.assertEqual(self.obj.nodes['sip/4']['Caller'], 'test')
-        self.assertEqual(self.obj.nodes['sip/4']['Duration'], '12')
-        self.assertEqual(self.obj.nodes['sip/4']['Status'], 'answered')
+#fixme: move to rmanager test
+# class TestYateStatus(TestCase):
+#     string = 'name=cdrbuild,type=cdr,format=Status|Caller|Called|BillId|' \
+#              'Duration;cdrs=5,hungup=0;sip/4=answered|test|99991007|' \
+#              '1403660477-4|12,sip/5=answered|test|99991007|1403660477-6|3,' \
+#              'sip/6=answered|test|99991007|1403660477-8|2,sip/7=answered|' \
+#              'test|99991007|1403660477-10|2,sip/8=answered|test|99991007|' \
+#              '1403660477-12|2'
+#     obj = libyate.type.YateStatus(string)
+#
+#     def test_repr(self):
+#         self.assertEqual(repr(self.obj),
+#                          '<libyate.type.YateStatus "cdrbuild">')
+#
+#     def test_attrs(self):
+#         self.assertEqual(self.obj.definition['name'], 'cdrbuild')
+#         self.assertEqual(self.obj.definition['format'],
+#                          'Status|Caller|Called|BillId|Duration')
+#         self.assertEqual(self.obj.status['cdrs'], '5')
+#         self.assertEqual(len(self.obj.nodes), 5)
+#         self.assertEqual(self.obj.nodes['sip/4']['BillId'], '1403660477-4')
+#         self.assertEqual(self.obj.nodes['sip/4']['Called'], '99991007')
+#         self.assertEqual(self.obj.nodes['sip/4']['Caller'], 'test')
+#         self.assertEqual(self.obj.nodes['sip/4']['Duration'], '12')
+#         self.assertEqual(self.obj.nodes['sip/4']['Status'], 'answered')

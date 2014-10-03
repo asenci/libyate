@@ -6,11 +6,11 @@ Sample application to test libyate
 import logging
 import optparse
 
-import libyate.app
+import libyate.extmodule
 
 
 # noinspection PyDocstring,PyUnusedLocal
-class MyApp(libyate.app.SocketClient):
+class MyApp(libyate.extmodule.SocketClient):
     def run(self):
         # Connect to the engine
         self.connect('global')

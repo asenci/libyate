@@ -1,12 +1,11 @@
 """
-libyate - command definitions
+libyate - engine command definitions
 """
 
 from abc import abstractmethod
 from datetime import datetime
 
 import libyate.type
-import libyate.util
 
 
 _id = id
@@ -55,7 +54,7 @@ class Command(object):
             yield self.__keyword__
 
         for desc in self.__descriptors__:
-            yield libyate.util.yate_str(desc.to_string(self))
+            yield desc.to_string(self)
 
     def __getitem__(self, item):
         return list(self).__getitem__(item)
@@ -72,6 +71,40 @@ class Command(object):
     def __unicode__(self):
         return str(self).decode()
 
+    @staticmethod
+    def from_string(string):
+        """Parse the command string and return an Command object
+
+        :param str string: Command string to parse
+        :return: An Yate command object
+        :rtype: Command
+        :raise NotImplementedError: if the keyword in the command string is not
+            supported
+        """
+
+        keyword, args = string.split(':', 1)
+
+        cmd_cls = KW_CLS_MAP.get(keyword)
+
+        if cmd_cls is None:
+            raise NotImplementedError('Keyword "{0}" not implemented'
+                                      .format(keyword))
+
+        cmd_obj = cmd_cls.__new__(cmd_cls)
+        args = args.split(':', len(cmd_cls.__descriptors__) - 1)
+
+        # Map arguments to descriptors
+        for desc, value in zip(cmd_cls.__descriptors__,
+                               args):
+
+            # Decode upcoded strings
+            if isinstance(desc, libyate.type.EncodedString):
+                value = libyate.type.yate_decode(value)
+
+            desc.__set__(cmd_obj, value)
+
+        return cmd_obj
+
 
 class Connect(Command):
     """Yate connect command
@@ -84,9 +117,9 @@ class Connect(Command):
 
     __keyword__ = '%%>connect'
 
-    role = libyate.type.String(encoded=True)
-    id = libyate.type.String(blank=True, encoded=True)
-    type = libyate.type.String(blank=True, encoded=True)
+    role = libyate.type.EncodedString()
+    id = libyate.type.EncodedString(blank=True)
+    type = libyate.type.EncodedString(blank=True)
 
     # noinspection PyShadowingBuiltins
     def __init__(self, role=None, id=None, type=None):
@@ -121,9 +154,9 @@ class Install(Command):
     __keyword__ = '%%>install'
 
     priority = libyate.type.Integer(blank=True)
-    name = libyate.type.String(encoded=True)
-    filter_name = libyate.type.String(blank=True, encoded=True)
-    filter_value = libyate.type.String(blank=True, encoded=True)
+    name = libyate.type.EncodedString()
+    filter_name = libyate.type.EncodedString(blank=True)
+    filter_value = libyate.type.EncodedString(blank=True)
 
     def __init__(self, priority=None, name=None, filter_name=None,
                  filter_value=None):
@@ -145,7 +178,7 @@ class InstallReply(Command):
     __keyword__ = '%%<install'
 
     priority = libyate.type.Integer()
-    name = libyate.type.String(encoded=True)
+    name = libyate.type.EncodedString()
     success = libyate.type.Boolean()
 
     def __init__(self, priority=None, name=None, success=None):
@@ -167,10 +200,10 @@ class Message(Command):
 
     __keyword__ = '%%>message'
 
-    id = libyate.type.String(encoded=True)
+    id = libyate.type.EncodedString()
     time = libyate.type.DateTime()
-    name = libyate.type.String(encoded=True)
-    retvalue = libyate.type.String(blank=True, encoded=True)
+    name = libyate.type.EncodedString()
+    retvalue = libyate.type.EncodedString(blank=True)
     kvp = libyate.type.KeyValueList(blank=True)
 
     # noinspection PyShadowingBuiltins
@@ -223,10 +256,10 @@ class MessageReply(Command):
 
     __keyword__ = '%%<message'
 
-    id = libyate.type.String(encoded=True, blank=True)
+    id = libyate.type.EncodedString(blank=True)
     processed = libyate.type.Boolean()
-    name = libyate.type.String(blank=True, encoded=True)
-    retvalue = libyate.type.String(blank=True, encoded=True)
+    name = libyate.type.EncodedString(blank=True)
+    retvalue = libyate.type.EncodedString(blank=True)
     kvp = libyate.type.KeyValueList(blank=True)
 
     # noinspection PyShadowingBuiltins
@@ -261,8 +294,8 @@ class SetLocal(Command):
 
     __keyword__ = '%%>setlocal'
 
-    name = libyate.type.String(encoded=True)
-    value = libyate.type.String(blank=True, encoded=True)
+    name = libyate.type.EncodedString()
+    value = libyate.type.EncodedString(blank=True)
 
     def __init__(self, name=None, value=None):
         super(SetLocal, self).__init__(name=name, value=value)
@@ -279,8 +312,8 @@ class SetLocalReply(Command):
 
     __keyword__ = '%%<setlocal'
 
-    name = libyate.type.String(encoded=True)
-    value = libyate.type.String(encoded=True)
+    name = libyate.type.EncodedString()
+    value = libyate.type.EncodedString()
     success = libyate.type.Boolean()
 
     def __init__(self, name=None, value=None, success=None):
@@ -296,7 +329,7 @@ class UnInstall(Command):
 
     __keyword__ = '%%>uninstall'
 
-    name = libyate.type.String(encoded=True)
+    name = libyate.type.EncodedString()
 
     def __init__(self, name=None):
         Command.__init__(self, name=name)
@@ -315,7 +348,7 @@ class UnInstallReply(Command):
     __keyword__ = '%%<uninstall'
 
     priority = libyate.type.Integer()
-    name = libyate.type.String(encoded=True)
+    name = libyate.type.EncodedString()
     success = libyate.type.Boolean()
 
     def __init__(self, priority=None, name=None, success=None):
@@ -331,7 +364,7 @@ class UnWatch(Command):
 
     __keyword__ = '%%>unwatch'
 
-    name = libyate.type.String(encoded=True)
+    name = libyate.type.EncodedString()
 
     def __init__(self, name=None):
         super(UnWatch, self).__init__(name=name)
@@ -347,7 +380,7 @@ class UnWatchReply(Command):
 
     __keyword__ = '%%<unwatch'
 
-    name = libyate.type.String(encoded=True)
+    name = libyate.type.EncodedString()
     success = libyate.type.Boolean()
 
     def __init__(self, name=None, success=None):
@@ -362,7 +395,7 @@ class Watch(Command):
 
     __keyword__ = '%%>watch'
 
-    name = libyate.type.String(encoded=True)
+    name = libyate.type.EncodedString()
 
     def __init__(self, name=None):
         super(Watch, self).__init__(name=name)
@@ -378,7 +411,7 @@ class WatchReply(Command):
 
     __keyword__ = '%%<watch'
 
-    name = libyate.type.String(encoded=True)
+    name = libyate.type.EncodedString()
     success = libyate.type.Boolean()
 
     def __init__(self, name=None, success=None):

@@ -6,11 +6,11 @@ Sample application to test libyate
 import logging
 import optparse
 
-import libyate.app
+import libyate.extmodule
 
 
 # noinspection PyDocstring,PyUnusedLocal
-class MyApp(libyate.app.Script):
+class MyApp(libyate.extmodule.Script):
     def run(self):
         # Query engine version
         self.set_local('engine.version')

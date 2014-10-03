@@ -2,9 +2,8 @@
 Test cases for libyate.cmd
 """
 
-import libyate.cmd
+import libyate.engine
 import libyate.type
-import libyate.util
 
 from datetime import datetime
 from unittest import TestCase
@@ -28,7 +27,7 @@ class CmdCaseMeta(type):
         if cmd_class is None:
             attrs['test_cmd_abstract_raise'] = \
                 lambda self: \
-                self.assertRaises(TypeError, libyate.cmd.Command)
+                self.assertRaises(TypeError, libyate.engine.Command)
 
         for n, (s, d) in enumerate(strings):
             def test_cmd_from_string(cmd_obj, string):
@@ -37,7 +36,7 @@ class CmdCaseMeta(type):
             def test_cmd_from_repr(cmd_obj):
                 def test(self):
                     import datetime
-                    import libyate.cmd
+                    import libyate.engine
                     import libyate.type
 
                     self.assertEqual(eval(repr(cmd_obj)), cmd_obj)
@@ -52,7 +51,7 @@ class CmdCaseMeta(type):
                 return lambda self: self.assertEqual(
                     getattr(cmd_obj, key), value)
 
-            cmd = libyate.util.cmd_from_string(s)
+            cmd = libyate.engine.Command.from_string(s)
 
             attrs['test_cmd_from_string_%s' % n] = test_cmd_from_string(cmd, s)
             attrs['test_cmd_from_repr_%s' % n] = test_cmd_from_repr(cmd)
@@ -79,12 +78,13 @@ class TestYateCmd(TestCase):
     strings = ()
 
     def test_cmd_from_string_raise(self):
-        self.assertRaises(NotImplementedError, libyate.util.cmd_from_string,
+        self.assertRaises(NotImplementedError,
+                          libyate.engine.Command.from_string,
                           '%%>invalid_method:false')
 
     def test_cmd_no_keyword_raise(self):
         # noinspection PyDocstring
-        class C(libyate.cmd.Command):
+        class C(libyate.engine.Command):
             def __init__(self):
                 super(C, self).__init__()
 
@@ -92,29 +92,29 @@ class TestYateCmd(TestCase):
         self.assertRaises(NotImplementedError, str, cmd)
 
     def test_cmd_neq(self):
-        c1 = libyate.util.cmd_from_string('%%>connect:test')
-        c2 = libyate.util.cmd_from_string('%%>connect:test2')
+        c1 = libyate.engine.Command.from_string('%%>connect:test')
+        c2 = libyate.engine.Command.from_string('%%>connect:test2')
         self.assertNotEqual(c1, c2)
 
     def test_cmd_repr(self):
         self.assertEqual(repr(
-            libyate.util.cmd_from_string('%%>message:myapp55251%%:1095112794:a'
-                                         'pp.job%z::path=/bin%z/usr/bin:job=cl'
-                                         'eanup:done=75%%')),
-                         "libyate.cmd.Message('myapp55251%', datetime.datetime"
-                         "(2004, 9, 13, 21, 59, 54), 'app.job:', None, libyate"
-                         ".type.OrderedDict((('path', '/bin:/usr/bin'), ('job'"
-                         ", 'cleanup'), ('done', '75%'))))")
+            libyate.engine.Command.from_string('%%>message:myapp55251%%:109511'
+                                               '2794:app.job%z::path=/bin%z/us'
+                                               'r/bin:job=cleanup:done=75%%')),
+                         "libyate.engine.Message('myapp55251%', datetime.datet"
+                         "ime(2004, 9, 13, 21, 59, 54), 'app.job:', None, liby"
+                         "ate.type.OrderedDict((('path', '/bin:/usr/bin'), ('j"
+                         "ob', 'cleanup'), ('done', '75%'))))")
 
     def test_cmd_unicode(self):
         self.assertTrue(isinstance(unicode(
-            libyate.util.cmd_from_string('%%>connect:test')), unicode))
+            libyate.engine.Command.from_string('%%>connect:test')), unicode))
 
 
 class TestYateCmdConnect(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.Connect
+    cmd_class = libyate.engine.Connect
     strings = (
         ('%%>connect:test::', dict(role='test')),
         ('%%>connect:test:1234:', dict(role='test', id='1234')),
@@ -132,7 +132,7 @@ class TestYateCmdConnect(TestCase):
 class TestYateCmdError(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.Error
+    cmd_class = libyate.engine.Error
     strings = (
         ('Error in:%%>install::engine.timer',
          dict(original='%%>install::engine.timer')),
@@ -146,7 +146,7 @@ class TestYateCmdError(TestCase):
 class TestYateCmdInstall(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.Install
+    cmd_class = libyate.engine.Install
     strings = (
         ('%%>install::test::', dict(name='test')),
         ('%%>install:50:test::', dict(priority=50, name='test')),
@@ -170,7 +170,7 @@ class TestYateCmdInstall(TestCase):
 class TestYateCmdInstallReply(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.InstallReply
+    cmd_class = libyate.engine.InstallReply
     strings = (
         ('%%<install:100:test:true',
          dict(priority=100, name='test', success=True)),
@@ -195,7 +195,7 @@ class TestYateCmdInstallReply(TestCase):
 class TestYateCmdMessage(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.Message
+    cmd_class = libyate.engine.Message
     strings = (
         ('%%>message:234479288:1095112796:engine.timer::',
          dict(id='234479288', time=datetime.utcfromtimestamp(1095112796),
@@ -229,13 +229,13 @@ class TestYateCmdMessage(TestCase):
 
     def test_cmd_reply(self):
         self.assertTrue(isinstance(self.cmd_class().reply(),
-                                   libyate.cmd.MessageReply))
+                                   libyate.engine.MessageReply))
 
 
 class TestYateCmdMessageReply(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.MessageReply
+    cmd_class = libyate.engine.MessageReply
     strings = (
         ('%%<message:234479208:false:::',
          dict(id='234479208', processed=False)),
@@ -275,7 +275,7 @@ class TestYateCmdMessageReply(TestCase):
 class TestYateCmdOutput(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.Output
+    cmd_class = libyate.engine.Output
     strings = (
         ('%%>output:arbitrary unescaped string%%',
          dict(output='arbitrary unescaped string%%')),
@@ -289,7 +289,7 @@ class TestYateCmdOutput(TestCase):
 class TestYateCmdSetLocal(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.SetLocal
+    cmd_class = libyate.engine.SetLocal
     strings = (
         ('%%>setlocal:test:', dict(name='test')),
         ('%%>setlocal:test:true', dict(name='test', value='true')),
@@ -304,7 +304,7 @@ class TestYateCmdSetLocal(TestCase):
 class TestYateCmdSetLocalReply(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.SetLocalReply
+    cmd_class = libyate.engine.SetLocalReply
     strings = (
         ('%%<setlocal:test:true:true',
          dict(name='test', value='true', success=True)),
@@ -325,7 +325,7 @@ class TestYateCmdSetLocalReply(TestCase):
 class TestYateCmdUnInstall(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.UnInstall
+    cmd_class = libyate.engine.UnInstall
     strings = (
         ('%%>uninstall:test', dict(name='test')),
         ('%%>uninstall:test%%', dict(name='test%')),
@@ -339,7 +339,7 @@ class TestYateCmdUnInstall(TestCase):
 class TestYateCmdUnInstallReply(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.UnInstallReply
+    cmd_class = libyate.engine.UnInstallReply
     strings = (
         ('%%<uninstall:100:test:true',
          dict(priority=100, name='test', success=True)),
@@ -364,7 +364,7 @@ class TestYateCmdUnInstallReply(TestCase):
 class TestYateCmdUnWatch(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.UnWatch
+    cmd_class = libyate.engine.UnWatch
     strings = (
         ('%%>unwatch:test', dict(name='test')),
         ('%%>unwatch:test%%', dict(name='test%')),
@@ -378,7 +378,7 @@ class TestYateCmdUnWatch(TestCase):
 class TestYateCmdUnWatchReply(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.UnWatchReply
+    cmd_class = libyate.engine.UnWatchReply
     strings = (
         ('%%<unwatch:test:true', dict(name='test', success=True)),
         ('%%<unwatch:test:false', dict(name='test', success=False)),
@@ -396,7 +396,7 @@ class TestYateCmdUnWatchReply(TestCase):
 class TestYateCmdWatch(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.Watch
+    cmd_class = libyate.engine.Watch
     strings = (
         ('%%>watch:test', dict(name='test')),
         ('%%>watch:test%%', dict(name='test%')),
@@ -410,7 +410,7 @@ class TestYateCmdWatch(TestCase):
 class TestYateCmdWatchReply(TestCase):
     __metaclass__ = CmdCaseMeta
 
-    cmd_class = libyate.cmd.WatchReply
+    cmd_class = libyate.engine.WatchReply
     strings = (
         ('%%<watch:test:true', dict(name='test', success=True)),
         ('%%<watch:test:false', dict(name='test', success=False)),

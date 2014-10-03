@@ -2,11 +2,94 @@
 libyate - custom types and descriptors
 """
 
+import re
+
 from abc import ABCMeta, abstractmethod
 from collections import MutableMapping
 from datetime import datetime
 
-import libyate.util
+
+#
+# Helper functions
+#
+
+def obj_to_str(obj):
+    """Return the string representation of the object
+
+    :param object obj: An object
+    :return: A string representing the object
+    :rtype: str
+    """
+
+    if obj is None:
+        return ''
+
+    elif isinstance(obj, (str, unicode)):
+        return obj
+
+    elif isinstance(obj, bool):
+        return 'true' if obj else 'false'
+
+    elif isinstance(obj, OrderedDict):
+        return ':'.join(('='.join((
+            yate_encode(obj_to_str(k)),
+            yate_encode(obj_to_str(v)),
+        )).rstrip('=') for k, v in obj.items()))
+
+    else:
+        if isinstance(obj, datetime):
+            return timestamp_as_str(obj)
+
+        return str(obj)
+
+
+def timestamp_as_str(dt):
+    """Return a timestamp string from the datetime object
+
+    :param datetime.datetime dt: A datetime object
+    :return: A timestamp string
+    :rtype: str
+    """
+
+    return str(int((dt - datetime(1970, 1, 1)).total_seconds()))
+
+
+def yate_decode(string):
+    """Decode Yate up-coded strings
+
+    :param str string: An encoded (Yate up-coded) string
+    :return: A decoded (Yate down-coded) string
+    :rtype: str
+    """
+
+    # noinspection PyDocstring
+    def replace(m):
+        if m.group(1) == '%':
+            return '%'
+        else:
+            return chr(ord(m.group(1)) - 64)
+
+    return re.sub(r'%(.?)', replace, string)
+
+
+def yate_encode(string):
+    """Encode string using Yate up-coded representation
+
+    :param str string: A string
+    :return: A encoded (Yate up-coded) string
+    :rtype: str
+    """
+
+    special_chars = ''.join([chr(i) for i in xrange(32)] + ['%', ':', '='])
+
+    # noinspection PyDocstring
+    def replace(m):
+        if m.group() == '%':
+            return '%%'
+        else:
+            return '%{0:c}'.format(ord(m.group()) + 64)
+
+    return re.sub(r'[{0}]'.format(special_chars), replace, string)
 
 
 #
@@ -58,37 +141,6 @@ class OrderedDict(MutableMapping, dict):
         """D.copy() -> a shallow copy of D"""
 
         return self.__class__(self)
-
-
-class YateStatus(object):
-    """Object representing an Yate status message"""
-
-    def __init__(self, string):
-        """:param str string: string to decode"""
-
-        # Definition, status and nodes groups are separated by ';'
-        definition, status = string.partition(';')[::2]
-        status, nodes = status.partition(';')[::2]
-
-        # Attributes are represented by key=value pairs separated by ','
-        self.definition = dict((x.partition('=')[::2])
-                               for x in definition.split(','))
-        self.status = dict((x.partition('=')[::2])
-                           for x in status.split(','))
-        self.nodes = dict((x.partition('=')[::2])
-                          for x in nodes.split(','))
-
-        # Nodes attributes are separated by '|'
-        # Attributes names are optionally defined on the 'format' attribute
-        if self.definition.get('format') is not None:
-            fmt = self.definition.get('format').split('|')
-            for k, v in self.nodes.items():
-                self.nodes[k] = dict(zip(fmt, v.split('|')))
-
-    def __repr__(self):
-        return '<{0}.{1} "{2}">'.format(
-            self.__class__.__module__, self.__class__.__name__,
-            self.definition.get('name', 'undefined'))
 
 
 #
@@ -198,9 +250,10 @@ class Descriptor(object):
         :rtype: str
         """
 
-        if instance:
-            return libyate.util.yate_str(
-                self.__get__(instance, instance.__class__))
+        if instance is None:
+            return
+
+        return obj_to_str(self.__get__(instance, instance.__class__))
 
 
 class Boolean(Descriptor):
@@ -324,8 +377,8 @@ class KeyValueList(Descriptor):
                 if k == '':
                     raise ValueError('Key on key-value pair cannot be empty')
 
-                result.append((libyate.util.yate_decode(k),
-                               libyate.util.yate_decode(v)))
+                result.append((yate_decode(k),
+                               yate_decode(v)))
 
             return OrderedDict(result)
 
@@ -336,23 +389,18 @@ class String(Descriptor):
     """Descriptor representing a string
 
     :param bool blank: Allow value to be None or ''
-    :param bool encoded: Format string as a Yate encoded (up-coded) string
     :param int length: String length
     :param int min_length: String minimal length
     :param int max_length: String maximal length
     """
 
-    encoded = False
     length = None
     min_length = None
     max_length = None
 
-    def __init__(self, blank=None, encoded=None, length=None,
-                 min_length=None, max_length=None):
+    def __init__(self, blank=None, length=None, min_length=None,
+                 max_length=None):
         super(String, self).__init__(blank=blank)
-
-        if encoded is not None:
-            self.encoded = encoded
 
         if length is not None:
             self.length = length
@@ -387,7 +435,7 @@ class String(Descriptor):
             value = str(value)
 
         elif isinstance(value, datetime):
-            value = libyate.util.timestamp_as_str(value)
+            value = timestamp_as_str(value)
 
         if isinstance(value, (str, unicode)):
             if value or self.blank:
@@ -402,6 +450,10 @@ class String(Descriptor):
 
         raise TypeError
 
+
+class EncodedString(String):
+    """Descriptor representing an Yate encoded (up-coded) string"""
+
     def to_string(self, instance):
         """Encode string
 
@@ -410,9 +462,8 @@ class String(Descriptor):
         :rtype: str
         """
 
-        result = super(String, self).to_string(instance)
+        if instance is None:
+            return
 
-        if self.encoded:
-            return libyate.util.yate_encode(result)
-        else:
-            return result
+        return yate_encode(
+            super(String, self).to_string(instance))
