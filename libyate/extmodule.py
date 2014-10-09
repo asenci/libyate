@@ -361,7 +361,7 @@ class Application(object):
             to the engine
         """
 
-        self.__output_queue__.put(str(command))
+        self.__output_queue__.put('{0}\n'.format(command))
 
     def _startup(self):
         """Handler function for the startup handling thread"""
@@ -525,19 +525,18 @@ class Script(Application):
             except ValueError as e:
                 raise IOError(str(e))
 
-            if data:
-                self.__input_buffer__ += data
-
-            else:
+            if data == '':
                 raise EOFError('Received EOF')
 
-        string, self.__input_buffer__ = \
+            self.logger.debug('Received {0} bytes: {1!r}'
+                              .format(len(data), data))
+
+            self.__input_buffer__ += data
+
+        line, self.__input_buffer__ = \
             self.__input_buffer__.partition('\n')[::2]
 
-        self.logger.debug('Received {0} bytes: {1}'
-                          .format(len(string.encode()), string))
-
-        return string
+        return line
 
     def write(self, string):
         """Send command to the engine
@@ -546,11 +545,11 @@ class Script(Application):
         :raise IOError: on input/output errors
         """
 
-        self.logger.debug('Sending {0} bytes: {1}'
-                          .format(len(string.encode()), string))
+        self.logger.debug('Sending {0} bytes: {1!r}'
+                          .format(len(string), string))
 
         try:
-            sys.stdout.write(string + '\n')
+            sys.stdout.write(string)
 
         except ValueError as e:
             raise IOError(str(e))
@@ -591,6 +590,11 @@ class SocketClient(Application):
         self._port = port
 
         self._socket = None
+
+    def __del__(self):
+        if self._socket is not None:
+            self._socket.close()
+            self._socket = None
 
     def start(self):
         """Module startup routine"""
@@ -657,8 +661,8 @@ class SocketClient(Application):
             # Main loop
             super(SocketClient, self).start()
 
-            # Close socket
-            self._socket.close()
+            # Close the socket
+            self.close()
 
     def readline(self):
         """Get the next command from the engine
@@ -677,19 +681,18 @@ class SocketClient(Application):
             except socket.error as e:
                 raise IOError(str(e))
 
-            if data:
-                self.__input_buffer__ += data
-
-            else:
+            if data == '':
                 raise EOFError('Socket closed')
 
-        string, self.__input_buffer__ = \
+            self.logger.debug('Received {0} bytes: {1!r}'
+                              .format(len(data), data))
+
+            self.__input_buffer__ += data
+
+        line, self.__input_buffer__ = \
             self.__input_buffer__.partition('\n')[::2]
 
-        self.logger.debug('Received {0} bytes: {1}'
-                          .format(len(string.encode()), string))
-
-        return string
+        return line
 
     def write(self, string):
         """Send command to the engine
@@ -698,11 +701,11 @@ class SocketClient(Application):
         :raise IOError: on input/output errors
         """
 
-        self.logger.debug('Sending {0} bytes: {1}'
-                          .format(len(string.encode()), string))
+        self.logger.debug('Sending {0} bytes: {1!r}'
+                          .format(len(string), string))
 
         try:
-            self._socket.sendall(string + '\n')
+            self._socket.sendall(string)
 
         except socket.error as e:
             raise IOError(str(e))
@@ -710,8 +713,9 @@ class SocketClient(Application):
     def close(self):
         """Close input and stop receiving commands"""
 
-        # Close socket for read operations
-        self._socket.shutdown(socket.SHUT_RD)
+        if self._socket is not None:
+            # Close socket for read operations
+            self._socket.shutdown(socket.SHUT_RD)
 
     @abstractmethod
     def run(self):
