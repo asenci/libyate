@@ -20,6 +20,10 @@ class PermissionException(RManagerException):
     pass
 
 
+class RuntimeException(RManagerException):
+    pass
+
+
 class SyntaxException(RManagerException):
     pass
 
@@ -228,19 +232,58 @@ class RManagerSession(object):
 
         return self._auth_level
 
+    def call(self, channel, target):
+        result = self.send_cmd('call {0} {1}'.format(channel, target))
+
+        if result.startswith('Calling '):
+            return result
+
+        raise RuntimeException(result)
+
     def color(self, enable=True):
         self.send_cmd('color {0}'.format('on' if enable else 'off'))
 
-    def status(self, module=None, details=True):
-        command = 'status'
+    def control(self, channel, operation, **kwargs):
+        args = ' '.join(('='.join((k, v)) for k, v in kwargs.items()))
 
-        if not details:
-            command = ' '.join([command, 'overview'])
+        result = self.send_cmd('control {0} {1} {2}'.format(
+            channel, operation, args))
 
-        if module is not None:
-            command = ' '.join([command, module])
+        if result.endswith('OK'):
+            return result
 
-        status_list = self.send_cmd(command)
+        raise RuntimeException(result)
+
+    def drop(self, channel, reason=''):
+        result = self.send_cmd('drop {0} {1}'.format(channel, reason))
+
+        if result.startswith('Dropped ') or \
+                result.startswith('Tried to drop '):
+            return result
+
+        raise RuntimeException(result)
+
+    def reload(self, plugin=''):
+        result = self.send_cmd('reload {0}'.format(plugin))
+
+        if result == 'Reinitializing...':
+            return result
+
+        raise RuntimeException(result)
+
+    def restart(self, gracefull=True):
+        result = self.send_cmd('restart {0}'.format(
+            'now' if not gracefull else ''))
+
+        if result == 'Restart scheduled - please disconnect' or \
+                result == 'Engine restarting - bye!':
+            return result
+
+        raise RuntimeException(result)
+
+    def status(self, module='', overview=False):
+        status_list = self.send_cmd('status {0} {1}'.format(
+            'overview' if overview else '', module))
 
         result = []
 
@@ -277,17 +320,25 @@ class RManagerSession(object):
 
         return result
 
-    def uptime(self, usage=None):
+    def stop(self, exitcode=''):
+        result = self.send_cmd('stop {0}'.format(exitcode))
+
+        if result == 'Engine shutting down - bye!':
+            return result
+
+        raise RuntimeException(result)
+
+    def uptime(self, name=None):
         result = self.send_cmd('uptime')
 
         m = re.match(r'^Uptime: \d+ \d{2}:\d{2}:\d{2} \((?P<total>\d+)\)'
                      r' user: (?P<user>\d+.\d{3})'
                      r' kernel: (?P<kernel>\d+.\d{3})$', result)
 
-        if usage is None:
+        if name is None:
             return dict((k, float(v)) for k, v in m.groupdict().items())
 
         try:
-            return float(m.groupdict()[usage])
+            return float(m.groupdict()[name])
         except KeyError:
-            raise KeyError('{0} usage not supported'.format(usage))
+            raise SyntaxException('{0} uptime not supported'.format(name))
