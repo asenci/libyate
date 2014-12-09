@@ -26,51 +26,42 @@ class SyntaxException(RManagerException):
 
 class RManagerSession(object):
 
-    def __init__(self, host='127.0.0.1', port=5038, auth=None):
+    def __init__(self, host='127.0.0.1', port=5038, password=None):
         self.logger = logging.getLogger(self.__class__.__name__)
 
         self.__input_buffer__ = ''
         self._socket = None
-        self.auth_level = None
+        self._auth_level = None
 
         self.connect(host, port)
 
         self.header = self.readline()
 
-        self.write('echo off\r\n')
-        for line in self:
-            if line == 'Remote echo: off':
-                break
-
         self.write('output off\r\n')
         for line in self:
             if line == 'Output mode: off':
-                self.auth_level = 'user'
+                self._auth_level = 'user'
                 break
 
             elif line == 'Not authenticated!':
                 break
 
-        if self.auth_level is not None:
-            self.write('color off\r\n')
-            for line in self:
-                if line == 'Colorized output: no':
-                    break
+        if self._auth_level is None and password is None:
+            raise AuthenticationException('Server requires authentication')
 
         self.write('debug off\r\n')
         for line in self:
             if line.startswith('Debug level: '):
-                self.auth_level = 'admin'
+                self._auth_level = 'admin'
                 break
 
             elif line == 'Not authenticated!':
                 break
 
-        if auth is not None:
-            self.auth(auth)
+        if password:
+            self.auth(password)
 
-        elif self.auth_level is None:
-            raise AuthenticationException('Server requires authentication')
+        self.color(False)
 
     def __del__(self):
         self.close()
@@ -220,18 +211,71 @@ class RManagerSession(object):
 
             return line
 
-    def auth(self, password):
-        result = self.send_cmd('auth {0}'.format(password))
+    def auth(self, password=None):
+        if password:
+            result = self.send_cmd('auth {0}'.format(password))
 
-        if result == 'Bad authentication password!':
-            raise AuthenticationException(result)
+            if result in ['Authenticated successfully as admin!',
+                          'You are already authenticated as admin!']:
+                self._auth_level = 'admin'
 
-        elif result in ['Authenticated successfully as admin!',
-                        'You are already authenticated as admin!']:
-            self.auth_level = 'admin'
+            elif result in ['Authenticated successfully as user!',
+                            'You are already authenticated as user!']:
+                self._auth_level = 'user'
 
-        else:
-            self.auth_level = 'user'
+            else:
+                raise AuthenticationException(result)
+
+        return self._auth_level
+
+    def color(self, enable=True):
+        self.send_cmd('color {0}'.format('on' if enable else 'off'))
+
+    def status(self, module=None, details=True):
+        command = 'status'
+
+        if not details:
+            command = ' '.join([command, 'overview'])
+
+        if module is not None:
+            command = ' '.join([command, module])
+
+        status_list = self.send_cmd(command)
+
+        result = []
+
+        for line in status_list:
+            # Definition, status and details groups are separated by ';'
+            definition, status = line.partition(';')[::2]
+            status, details = status.partition(';')[::2]
+
+            # Attributes are represented by key=value pairs separated by ','
+            definition = dict((x.partition('=')[::2])
+                              for x in definition.split(','))
+
+            if status:
+                status = dict((x.partition('=')[::2])
+                              for x in status.split(','))
+
+            if details:
+                details = dict((x.partition('=')[::2])
+                               for x in details.split(','))
+
+                # Nodes attributes are separated by '|'
+                # Attributes names are optionally defined on the 'format'
+                # attribute
+                if definition.get('format') is not None:
+                    fmt = definition.get('format').split('|')
+                    for k, v in details.items():
+                        details[k] = dict(zip(fmt, v.split('|')))
+
+            result.append({
+                'definition': definition,
+                'status': status,
+                'details': details,
+            })
+
+        return result
 
     def uptime(self, usage=None):
         result = self.send_cmd('uptime')
@@ -247,39 +291,3 @@ class RManagerSession(object):
             return float(m.groupdict()[usage])
         except KeyError:
             raise KeyError('{0} usage not supported'.format(usage))
-
-    def status(self, module=None):
-        if module is not None:
-            status_list = self.send_cmd('status {0}'.format(module))
-        else:
-            status_list = self.send_cmd('status')
-
-        result = []
-
-        for line in status_list:
-            # Definition, status and nodes groups are separated by ';'
-            definition, status = line.partition(';')[::2]
-            status, nodes = status.partition(';')[::2]
-
-            # Attributes are represented by key=value pairs separated by ','
-            definition = dict((x.partition('=')[::2])
-                              for x in definition.split(','))
-            status = dict((x.partition('=')[::2])
-                          for x in status.split(','))
-            nodes = dict((x.partition('=')[::2])
-                         for x in nodes.split(','))
-
-            # Nodes attributes are separated by '|'
-            # Attributes names are optionally defined on the 'format' attribute
-            if definition.get('format') is not None:
-                fmt = definition.get('format').split('|')
-                for k, v in nodes.items():
-                    nodes[k] = dict(zip(fmt, v.split('|')))
-
-            result.append({
-                'definition': definition,
-                'status': status,
-                'nodes': nodes,
-            })
-
-        return result
