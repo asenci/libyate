@@ -732,8 +732,13 @@ class SocketClient(Application):
         """Close input and stop receiving commands"""
 
         if self._socket is not None:
-            # Close socket for read operations
-            self._socket.shutdown(socket.SHUT_RD)
+
+            try:
+                # Close socket for read operations
+                self._socket.shutdown(socket.SHUT_RD)
+
+            except socket.error:
+                pass
 
     @abstractmethod
     def run(self):
