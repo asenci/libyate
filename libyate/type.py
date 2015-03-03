@@ -51,7 +51,10 @@ def timestamp_as_str(dt):
     :rtype: str
     """
 
-    return str(int((dt - datetime(1970, 1, 1)).total_seconds()))
+    td = dt - datetime(1970, 1, 1)
+    seconds = (td.microseconds +
+               (td.seconds + td.days * 24 * 3600) * 10**6) / 10**6
+    return str(seconds)
 
 
 def yate_decode(string):
