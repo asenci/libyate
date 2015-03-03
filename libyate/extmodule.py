@@ -146,7 +146,7 @@ class Application(object):
     def _command(self, cmd):
         """Handler function for command handling threads
 
-        :param libyate.cmd.Command cmd: A libyate Command object to process
+        :param libyate.engine.Command cmd: A libyate Command object to process
         """
 
         self.logger.debug('Received command: {0!r}'.format(cmd))
