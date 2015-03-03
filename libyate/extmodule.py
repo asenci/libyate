@@ -72,6 +72,8 @@ class Application(object):
     def run(self):
         """User defined startup routine"""
 
+        pass
+
     def start(self):
         """Module startup routine"""
 
