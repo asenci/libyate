@@ -185,8 +185,8 @@ class Application(object):
         else:
             if isinstance(orig_cmd, libyate.engine.Message):
                 if self.__msg_callback__.pop(orig_cmd.id) is not None:
-                    raise RuntimeError(
-                        'Error processing message: {0!r}'.format(orig_cmd))
+                    raise RuntimeError('Error processing message: {0!r}'
+                                       .format(orig_cmd))
 
         self.logger.error('Invalid command: {0}'.format(cmd.original))
 
