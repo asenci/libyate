@@ -354,7 +354,7 @@ class Application(object):
                 self.__input_queue__.task_done()
 
                 if string is not None:
-                    return libyate.engine.Command.from_string(string)
+                    return libyate.engine.from_string(string)
 
                 break
 

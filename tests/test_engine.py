@@ -51,7 +51,7 @@ class CmdCaseMeta(type):
                 return lambda self: self.assertEqual(
                     getattr(cmd_obj, key), value)
 
-            cmd = libyate.engine.Command.from_string(s)
+            cmd = libyate.engine.from_string(s)
 
             attrs['test_cmd_from_string_%s' % n] = test_cmd_from_string(cmd, s)
             attrs['test_cmd_from_repr_%s' % n] = test_cmd_from_repr(cmd)
@@ -79,7 +79,7 @@ class TestYateCmd(TestCase):
 
     def test_cmd_from_string_raise(self):
         self.assertRaises(NotImplementedError,
-                          libyate.engine.Command.from_string,
+                          libyate.engine.from_string,
                           '%%>invalid_method:false')
 
     def test_cmd_no_keyword_raise(self):
@@ -92,15 +92,15 @@ class TestYateCmd(TestCase):
         self.assertRaises(NotImplementedError, str, cmd)
 
     def test_cmd_neq(self):
-        c1 = libyate.engine.Command.from_string('%%>connect:test')
-        c2 = libyate.engine.Command.from_string('%%>connect:test2')
+        c1 = libyate.engine.from_string('%%>connect:test')
+        c2 = libyate.engine.from_string('%%>connect:test2')
         self.assertNotEqual(c1, c2)
 
     def test_cmd_repr(self):
         self.assertEqual(repr(
-            libyate.engine.Command.from_string('%%>message:myapp55251%%:109511'
-                                               '2794:app.job%z::path=/bin%z/us'
-                                               'r/bin:job=cleanup:done=75%%')),
+            libyate.engine.from_string('%%>message:myapp55251%%:1095112794:app'
+                                       '.job%z::path=/bin%z/usr/bin:job=cleanu'
+                                       'p:done=75%%')),
                          "libyate.engine.Message('myapp55251%', datetime.datet"
                          "ime(2004, 9, 13, 21, 59, 54), 'app.job:', None, liby"
                          "ate.type.OrderedDict((('path', '/bin:/usr/bin'), ('j"
@@ -108,7 +108,7 @@ class TestYateCmd(TestCase):
 
     def test_cmd_unicode(self):
         self.assertTrue(isinstance(unicode(
-            libyate.engine.Command.from_string('%%>connect:test')), unicode))
+            libyate.engine.from_string('%%>connect:test')), unicode))
 
 
 class TestYateCmdConnect(TestCase):

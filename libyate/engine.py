@@ -71,40 +71,6 @@ class Command(object):
     def __unicode__(self):
         return str(self).decode()
 
-    @staticmethod
-    def from_string(string):
-        """Parse the command string and return an Command object
-
-        :param str string: Command string to parse
-        :return: An Yate command object
-        :rtype: Command
-        :raise NotImplementedError: if the keyword in the command string is not
-            supported
-        """
-
-        keyword, args = string.split(':', 1)
-
-        cmd_cls = KW_CLS_MAP.get(keyword)
-
-        if cmd_cls is None:
-            raise NotImplementedError('Keyword "{0}" not implemented'
-                                      .format(keyword))
-
-        cmd_obj = cmd_cls.__new__(cmd_cls)
-        args = args.split(':', len(cmd_cls.__descriptors__) - 1)
-
-        # Map arguments to descriptors
-        for desc, value in zip(cmd_cls.__descriptors__,
-                               args):
-
-            # Decode upcoded strings
-            if isinstance(desc, libyate.type.EncodedString):
-                value = libyate.type.yate_decode(value)
-
-            desc.__set__(cmd_obj, value)
-
-        return cmd_obj
-
 
 class Connect(Command):
     """Yate connect command
@@ -416,3 +382,37 @@ class WatchReply(Command):
 
     def __init__(self, name=None, success=None):
         super(WatchReply, self).__init__(name=name, success=success)
+
+
+def from_string(string):
+    """Parse the command string and return an Command object
+
+    :param str string: Command string to parse
+    :return: An Yate command object
+    :rtype: Command
+    :raise NotImplementedError: if the keyword in the command string is not
+        supported
+    """
+
+    keyword, args = string.split(':', 1)
+
+    cmd_cls = KW_CLS_MAP.get(keyword)
+
+    if cmd_cls is None:
+        raise NotImplementedError('Keyword "{0}" not implemented'
+                                  .format(keyword))
+
+    cmd_obj = cmd_cls.__new__(cmd_cls)
+    args = args.split(':', len(cmd_cls.__descriptors__) - 1)
+
+    # Map arguments to descriptors
+    for desc, value in zip(cmd_cls.__descriptors__,
+                           args):
+
+        # Decode upcoded strings
+        if isinstance(desc, libyate.type.EncodedString):
+            value = libyate.type.yate_decode(value)
+
+        desc.__set__(cmd_obj, value)
+
+    return cmd_obj
