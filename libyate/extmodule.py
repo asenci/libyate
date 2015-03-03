@@ -178,6 +178,16 @@ class Application(object):
         :param libyate.cmd.Error cmd: A libyate Error object to process
         """
 
+        try:
+            orig_cmd = libyate.engine.from_string(cmd.original)
+        except:
+            pass
+        else:
+            if isinstance(orig_cmd, libyate.engine.Message):
+                if self.__msg_callback__.pop(orig_cmd.id) is not None:
+                    raise RuntimeError(
+                        'Error processing message: {0!r}'.format(orig_cmd))
+
         self.logger.error('Invalid command: {0}'.format(cmd.original))
 
     def _command_install_reply(self, cmd):
@@ -207,7 +217,7 @@ class Application(object):
 
         # Reply from application generated message
         elif cmd.id is not None:
-            handler = self.__msg_callback__.pop(cmd.id).callback
+            handler = self.__msg_callback__.pop(cmd.id)
 
         # Notification from installed watchers
         else:
@@ -215,11 +225,13 @@ class Application(object):
 
         self.logger.debug('Handler: {0}'.format(handler))
 
-        result = handler(cmd)
-        self.logger.debug('Result: {0}'.format(result))
+        if handler is not None:
+            result = handler(cmd)
 
-        if result is not None:
-            self._send(result)
+            self.logger.debug('Result: {0}'.format(result))
+
+            if result is not None:
+                self._send(result)
 
     def _command_setlocal_reply(self, cmd):
         """Handler function for SetLocalReply commands
@@ -433,14 +445,13 @@ class Application(object):
         """
 
         msg = libyate.engine.Message(id, time, name, retvalue, kvp)
-        msg.callback = callback
 
         self.logger.debug('Sending message to the engine: {0!r}'.format(msg))
 
         if msg.id in self.__msg_callback__:
             raise KeyError('Message ID already in use: {0!r}'.format(msg.id))
 
-        self.__msg_callback__[msg.id] = msg
+        self.__msg_callback__[msg.id] = callback
 
         self._send(msg)
 
