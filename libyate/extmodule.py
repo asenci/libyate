@@ -77,13 +77,13 @@ class Application(object):
 
         self.logger.info('Starting module')
 
-        signal.signal(signal.SIGINT, lambda x, y: self.stop())
-        signal.signal(signal.SIGTERM, lambda x, y: self.stop())
+        signal.signal(signal.SIGINT, self.stop)
+        signal.signal(signal.SIGTERM, self.stop)
 
         if hasattr(signal, 'CTRL_BREAK_EVENT'):
-            signal.signal(signal.CTRL_BREAK_EVENT, lambda x, y: self.stop())
+            signal.signal(signal.CTRL_BREAK_EVENT, self.stop)
         if hasattr(signal, 'CTRL_C_EVENT'):
-            signal.signal(signal.CTRL_C_EVENT, lambda x, y: self.stop())
+            signal.signal(signal.CTRL_C_EVENT, self.stop)
 
         self.__input_buffer__ = ''
 
@@ -117,8 +117,13 @@ class Application(object):
 
         self.logger.debug('Waiting for threads')
 
-    def stop(self):
-        """Module shutdown routine"""
+    # noinspection PyUnusedLocal
+    def stop(self, signum=None, frame=None):
+        """Module shutdown routine
+
+        :param signum: signal number
+        :param frame: current stack frame
+        """
         self.logger.info('Stopping module')
 
         try:
