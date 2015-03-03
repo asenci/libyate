@@ -21,11 +21,11 @@ class MyApp(libyate.extmodule.SocketClient):
         # Query engine version
         self.set_local('engine.version')
 
-        # Install handler for "call.route"
-        self.install('call.route', priority=50, handler=self.call_route)
+        # Install handler for "call.route" with priority 50
+        self.install(self.call_route, 'call.route', 50)
 
         # Install watcher for "engine.timer"
-        self.watch('engine.timer', handler=self.timer)
+        self.watch(self.timer, 'engine.timer')
 
         # Send a message to the engine
         self.message(name='myapp.test', id='somerandomid',
