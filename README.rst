@@ -25,19 +25,16 @@ Sample script application:
     Sample application to test libyate
     """
 
+    import logging
+    import optparse
+
     import libyate.extmodule
 
 
     class MyApp(libyate.extmodule.Script):
-        def run(self):
+        def start(self):
             # Query engine version
             self.set_local('engine.version')
-
-            # Install handler for "call.route" with priority 50
-            self.install(self.call_route, 'call.route', 50)
-
-            # Install watcher for "engine.timer"
-            self.watch(self.timer, 'engine.timer')
 
             # Send a message to the engine
             self.message(name='myapp.test', id='somerandomid',
@@ -64,11 +61,7 @@ Sample script application:
 
 
     if __name__ == '__main__':
-
-        import logging
-        from optparse import OptionParser
-
-        parser = OptionParser()
+        parser = optparse.OptionParser()
         parser.add_option('-d', '--debug', action='store_true', default=False,
                           help='increase logging verbosity')
         parser.add_option('-q', '--quiet', action='store_true', default=False,
@@ -85,52 +78,72 @@ Sample script application:
             'format': log_format,
         })
 
-        MyApp('sample.py').start()
+        app = MyApp(name='sample.py', trackparam='libyate_sample', restart=False)
+        app.install(app.call_route, 'call.route', 50)
+        app.watch(app.timer, 'engine.timer')
+        app.main()
 
 
 * Output:
 
 ::
 
-    2014-07-01 10:37:05,753 <sample.py[MainThread]:INFO> Starting module
-    2014-07-01 10:37:05,753 <sample.py[InputThread]:DEBUG> Started input
-    2014-07-01 10:37:05,754 <sample.py[OutputThread]:DEBUG> Started output
-    2014-07-01 10:37:05,754 <sample.py[StartupThread]:DEBUG> Executing user code
-    2014-07-01 10:37:05,754 <sample.py[StartupThread]:INFO> Querying parameter "engine.version"
-    2014-07-01 10:37:05,755 <sample.py[StartupThread]:INFO> Installing handler for "call.route"
-    2014-07-01 10:37:05,755 <sample.py[StartupThread]:DEBUG> Installing watcher for "engine.timer"
-    2014-07-01 10:37:05,757 <sample.py[StartupThread]:DEBUG> Sending message to the engine: libyate.engine.Message('somerandomid', datetime.datetime(2014, 7, 1, 13, 37, 5, 755787), 'myapp.test', None, libyate.type.OrderedDict((('path', '/bin:/usr/bin'), ('testing', True), ('done', '75%'))))
-    2014-07-01 10:37:05,758 <sample.py[OutputThread]:DEBUG> Sending 27 bytes: %%>setlocal:engine.version:
-    2014-07-01 10:37:05,759 <sample.py[OutputThread]:DEBUG> Sending 26 bytes: %%>install:50:call.route::
-    2014-07-01 10:37:05,759 <sample.py[OutputThread]:DEBUG> Sending 21 bytes: %%>watch:engine.timer
-    2014-07-01 10:37:05,759 <sample.py[OutputThread]:DEBUG> Sending 89 bytes: %%>message:somerandomid:1404221825:myapp.test::path=/bin%z/usr/bin:testing=true:done=75%%
-    2014-07-01 10:37:05,763 <sample.py[InputThread]:DEBUG> Received 37 bytes: %%<setlocal:engine.version:5.3.0:true
-    2014-07-01 10:37:05,763 <sample.py[InputThread]:DEBUG> Received 29 bytes: %%<install:50:call.route:true
-    2014-07-01 10:37:05,763 <sample.py[InputThread]:DEBUG> Received 26 bytes: %%<watch:engine.timer:true
-    2014-07-01 10:37:05,766 <sample.py[SetLocalReply(4473274896)]:DEBUG> Received command: libyate.engine.SetLocalReply('engine.version', '5.3.0', True)
-    2014-07-01 10:37:05,766 <sample.py[InstallReply(4473277072)]:DEBUG> Received command: libyate.engine.InstallReply(50, 'call.route', True)
-    2014-07-01 10:37:05,767 <sample.py[SetLocalReply(4473274896)]:INFO> Parameter "engine.version" set to: 5.3.0
-    2014-07-01 10:37:05,767 <sample.py[InstallReply(4473277072)]:INFO> Installed handler for "call.route"
-    2014-07-01 10:37:05,767 <sample.py[WatchReply(4473277776)]:DEBUG> Received command: libyate.engine.WatchReply('engine.timer', True)
-    2014-07-01 10:37:05,768 <sample.py[WatchReply(4473277776)]:INFO> Installed watcher for "engine.timer"
-    2014-07-01 10:37:05,769 <sample.py[InputThread]:DEBUG> Received 84 bytes: %%<message:somerandomid:false:myapp.test::path=/bin%z/usr/bin:testing=true:done=75%%
-    2014-07-01 10:37:05,769 <sample.py[MessageReply(4471455056)]:DEBUG> Received command: libyate.engine.MessageReply('somerandomid', False, 'myapp.test', None, libyate.type.OrderedDict((('path', '/bin:/usr/bin'), ('testing', 'true'), ('done', '75%'))))
-    2014-07-01 10:37:05,769 <sample.py[MessageReply(4471455056)]:DEBUG> Handler: <bound method MyApp.reply of <__main__.MyApp object at 0x10a9fddd0>>
-    2014-07-01 10:37:05,770 <sample.py[MessageReply(4471455056)]:INFO> Got reply for "somerandomid"
-    2014-07-01 10:37:05,770 <sample.py[MessageReply(4471455056)]:DEBUG> Result: None
-    2014-07-01 10:37:06,004 <sample.py[InputThread]:DEBUG> Received 115 bytes: %%<message::false:engine.timer::time=1404221826:nodename=localhost:handlers=tone%z90,sip%z90,yrtp%z90,regfile%z100
-    2014-07-01 10:37:06,040 <sample.py[MessageReply(4473277904)]:DEBUG> Received command: libyate.engine.MessageReply(None, False, 'engine.timer', None, libyate.type.OrderedDict((('time', '1404221826'), ('nodename', 'localhost'), ('handlers', 'tone:90,sip:90,yrtp:90,regfile:100'))))
-    2014-07-01 10:37:06,040 <sample.py[MessageReply(4473277904)]:DEBUG> Handler: <bound method MyApp.timer of <__main__.MyApp object at 0x10a9fddd0>>
-    2014-07-01 10:37:06,040 <sample.py[MessageReply(4473277904)]:INFO> Some periodic routine
-    2014-07-01 10:37:06,040 <sample.py[MessageReply(4473277904)]:DEBUG> Result: None
-    2014-07-01 10:37:06,760 <sample.py[StartupThread]:DEBUG> Removing watcher for "engine.timer"
-    2014-07-01 10:37:06,793 <sample.py[OutputThread]:DEBUG> Sending 23 bytes: %%>unwatch:engine.timer
-    2014-07-01 10:37:06,798 <sample.py[InputThread]:DEBUG> Received 28 bytes: %%<unwatch:engine.timer:true
-    2014-07-01 10:37:06,818 <sample.py[UnWatchReply(4471455056)]:DEBUG> Received command: libyate.engine.UnWatchReply('engine.timer', True)
-    2014-07-01 10:37:06,818 <sample.py[UnWatchReply(4471455056)]:INFO> Removed watcher for "engine.timer"
-    ^CYate engine is shutting down with code 0
-    2014-07-01 10:37:12,643 <sample.py[MainThread]:INFO> Stopping module
-    2014-07-01 10:37:12,644 <sample.py[MainThread]:DEBUG> Waiting for threads
+    2015-03-03 18:17:32,374 <sample.py[MainThread]:DEBUG> Setting handler tracking parameter
+    2015-03-03 18:17:32,374 <sample.py[MainThread]:INFO> Setting parameter "trackparam" to: libyate_sample
+    2015-03-03 18:17:32,375 <sample.py[MainThread]:DEBUG> Setting module restart parameter
+    2015-03-03 18:17:32,375 <sample.py[MainThread]:INFO> Setting parameter "restart" to: false
+    2015-03-03 18:17:32,375 <sample.py[MainThread]:INFO> Installing handler for "call.route"
+    2015-03-03 18:17:32,375 <sample.py[MainThread]:DEBUG> Installing watcher for "engine.timer"
+    2015-03-03 18:17:32,375 <sample.py[MainThread]:INFO> Starting module threads
+    2015-03-03 18:17:32,375 <sample.py[InputThread]:DEBUG> Started input
+    2015-03-03 18:17:32,376 <sample.py[OutputThread]:DEBUG> Started output
+    2015-03-03 18:17:32,376 <sample.py[MainLoopThread]:DEBUG> Started main loop
+    2015-03-03 18:17:32,376 <sample.py[MainThread]:DEBUG> Dumping the startup queue into the output queue
+    2015-03-03 18:17:32,376 <sample.py[MainThread]:DEBUG> Executing user startup code
+    2015-03-03 18:17:32,376 <sample.py[MainThread]:INFO> Querying parameter "engine.version"
+    2015-03-03 18:17:32,377 <sample.py[MainThread]:DEBUG> Sending message to the engine: libyate.engine.Message('somerandomid', datetime.datetime(2015, 3, 3, 21, 17, 32, 376746), 'myapp.test', None, libyate.type.OrderedDict((('path', '/bin:/usr/bin'), ('testing', True), ('done', '75%'))))
+    2015-03-03 18:17:32,377 <sample.py[OutputThread]:DEBUG> Sending 38 bytes: '%%>setlocal:trackparam:libyate_sample\n'
+    2015-03-03 18:17:32,378 <sample.py[OutputThread]:DEBUG> Sending 26 bytes: '%%>setlocal:restart:false\n'
+    2015-03-03 18:17:32,378 <sample.py[OutputThread]:DEBUG> Sending 27 bytes: '%%>install:50:call.route::\n'
+    2015-03-03 18:17:32,378 <sample.py[OutputThread]:DEBUG> Sending 22 bytes: '%%>watch:engine.timer\n'
+    2015-03-03 18:17:32,378 <sample.py[OutputThread]:DEBUG> Sending 28 bytes: '%%>setlocal:engine.version:\n'
+    2015-03-03 18:17:32,378 <sample.py[OutputThread]:DEBUG> Sending 90 bytes: '%%>message:somerandomid:1425417452:myapp.test::path=/bin%z/usr/bin:testing=true:done=75%%\n'
+    2015-03-03 18:17:32,378 <sample.py[InputThread]:DEBUG> Received 43 bytes: '%%<setlocal:trackparam:libyate_sample:true\n'
+    2015-03-03 18:17:32,380 <sample.py[SetLocalReply(4469319824)]:DEBUG> Received command: libyate.engine.SetLocalReply('trackparam', 'libyate_sample', True)
+    2015-03-03 18:17:32,380 <sample.py[SetLocalReply(4469319824)]:INFO> Parameter "trackparam" set to: libyate_sample
+    2015-03-03 18:17:32,383 <sample.py[InputThread]:DEBUG> Received 31 bytes: '%%<setlocal:restart:false:true\n'
+    2015-03-03 18:17:32,383 <sample.py[InputThread]:DEBUG> Received 30 bytes: '%%<install:50:call.route:true\n'
+    2015-03-03 18:17:32,383 <sample.py[InputThread]:DEBUG> Received 27 bytes: '%%<watch:engine.timer:true\n'
+    2015-03-03 18:17:32,384 <sample.py[InputThread]:DEBUG> Received 38 bytes: '%%<setlocal:engine.version:5.4.0:true\n'
+    2015-03-03 18:17:32,388 <sample.py[SetLocalReply(4474977808)]:DEBUG> Received command: libyate.engine.SetLocalReply('restart', 'false', True)
+    2015-03-03 18:17:32,388 <sample.py[InputThread]:DEBUG> Received 85 bytes: '%%<message:somerandomid:false:myapp.test::path=/bin%z/usr/bin:testing=true:done=75%%\n'
+    2015-03-03 18:17:32,389 <sample.py[SetLocalReply(4474977808)]:INFO> Parameter "restart" set to: false
+    2015-03-03 18:17:32,389 <sample.py[InstallReply(4475147792)]:DEBUG> Received command: libyate.engine.InstallReply(50, 'call.route', True)
+    2015-03-03 18:17:32,389 <sample.py[WatchReply(4475148432)]:DEBUG> Received command: libyate.engine.WatchReply('engine.timer', True)
+    2015-03-03 18:17:32,390 <sample.py[InstallReply(4475147792)]:INFO> Installed handler for "call.route"
+    2015-03-03 18:17:32,390 <sample.py[SetLocalReply(4475149136)]:DEBUG> Received command: libyate.engine.SetLocalReply('engine.version', '5.4.0', True)
+    2015-03-03 18:17:32,391 <sample.py[WatchReply(4475148432)]:INFO> Installed watcher for "engine.timer"
+    2015-03-03 18:17:32,391 <sample.py[SetLocalReply(4475149136)]:INFO> Parameter "engine.version" set to: 5.4.0
+    2015-03-03 18:17:32,391 <sample.py[MessageReply(4475149648)]:DEBUG> Received command: libyate.engine.MessageReply('somerandomid', False, 'myapp.test', None, libyate.type.OrderedDict((('path', '/bin:/usr/bin'), ('testing', 'true'), ('done', '75%'))))
+    2015-03-03 18:17:32,392 <sample.py[MessageReply(4475149648)]:DEBUG> Handler: <bound method MyApp.reply of <__main__.MyApp object at 0x10ababa50>>
+    2015-03-03 18:17:32,392 <sample.py[MessageReply(4475149648)]:INFO> Got reply for "somerandomid"
+    2015-03-03 18:17:32,392 <sample.py[MessageReply(4475149648)]:DEBUG> Result: None
+    2015-03-03 18:17:33,018 <sample.py[InputThread]:DEBUG> Received 589 bytes: '%%<message::false:engine.timer::time=1425417453:nodename=hades:handlers=subscription%z90,zlibcompress%z90,socks%z90,openssl%z90,mux%z90,javascript%z90,callfork%z90,conf%z90,dumb%z90,enumroute%z90,gvoice%z90,pbx%z90,iax%z90,jingle%z90,mgcpgw%z90,mrcp%z90,monitoring%z90,park%z90,queues%z90,sipfeatures%z90,users%z90,snmpagent%z90,fileinfo%z90,filetransfer%z90,stun%z90,analog%z90,sig%z90,jbfeatures%z90,jabber%z90,sigtransport%z90,mgcpca%z90,ciscosm%z90,analogdetect%z90,tonedetect%z90,tone%z90,yrtp%z90,analyzer%z90,wave%z90,sip%z90,presence%z90,queuesnotify%z90,register%z90,regfile%z100\n'
+    2015-03-03 18:17:33,053 <sample.py[MessageReply(4469319824)]:DEBUG> Received command: libyate.engine.MessageReply(None, False, 'engine.timer', None, libyate.type.OrderedDict((('time', '1425417453'), ('nodename', 'hades'), ('handlers', 'subscription:90,zlibcompress:90,socks:90,openssl:90,mux:90,javascript:90,callfork:90,conf:90,dumb:90,enumroute:90,gvoice:90,pbx:90,iax:90,jingle:90,mgcpgw:90,mrcp:90,monitoring:90,park:90,queues:90,sipfeatures:90,users:90,snmpagent:90,fileinfo:90,filetransfer:90,stun:90,analog:90,sig:90,jbfeatures:90,jabber:90,sigtransport:90,mgcpca:90,ciscosm:90,analogdetect:90,tonedetect:90,tone:90,yrtp:90,analyzer:90,wave:90,sip:90,presence:90,queuesnotify:90,register:90,regfile:100'))))
+    2015-03-03 18:17:33,053 <sample.py[MessageReply(4469319824)]:DEBUG> Handler: <bound method MyApp.timer of <__main__.MyApp object at 0x10ababa50>>
+    2015-03-03 18:17:33,053 <sample.py[MessageReply(4469319824)]:INFO> Some periodic routine
+    2015-03-03 18:17:33,053 <sample.py[MessageReply(4469319824)]:DEBUG> Result: None
+    2015-03-03 18:17:33,382 <sample.py[MainThread]:DEBUG> Removing watcher for "engine.timer"
+    2015-03-03 18:17:33,383 <sample.py[MainThread]:DEBUG> Entering main loop
+    2015-03-03 18:17:33,417 <sample.py[OutputThread]:DEBUG> Sending 24 bytes: '%%>unwatch:engine.timer\n'
+    2015-03-03 18:17:33,422 <sample.py[InputThread]:DEBUG> Received 29 bytes: '%%<unwatch:engine.timer:true\n'
+    2015-03-03 18:17:33,451 <sample.py[UnWatchReply(4469419408)]:DEBUG> Received command: libyate.engine.UnWatchReply('engine.timer', True)
+    2015-03-03 18:17:33,452 <sample.py[UnWatchReply(4469419408)]:INFO> Removed watcher for "engine.timer"
+    2015-03-03 18:17:49,969 <sample.py[InputThread]:DEBUG> Stopping input
+    2015-03-03 18:17:49,969 <sample.py[InputThread]:INFO> Stopping module
+    2015-03-03 18:17:49,970 <sample.py[MainThread]:INFO> Stopping module
+    2015-03-03 18:17:50,012 <sample.py[OutputThread]:INFO> Stopping module
+    2015-03-03 18:17:50,024 <sample.py[MainThread]:DEBUG> Waiting for threads
 
 
 Sample socket client application:
@@ -154,25 +167,19 @@ Sample socket client application:
     Sample application to test libyate
     """
 
+    import logging
+    import optparse
+
     import libyate.extmodule
 
 
     class MyApp(libyate.extmodule.SocketClient):
-        def run(self):
-            # Connect to the engine
-            self.connect('global')
-
+        def start(self):
             # Send message to the engine
             self.output('Starting sample.py')
 
             # Query engine version
             self.set_local('engine.version')
-
-            # Install handler for "call.route" with priority 50
-            self.install(self.call_route, 'call.route', 50)
-
-            # Install watcher for "engine.timer"
-            self.watch(self.timer, 'engine.timer')
 
             # Send a message to the engine
             self.message(name='myapp.test', id='somerandomid',
@@ -199,11 +206,8 @@ Sample socket client application:
 
 
     if __name__ == '__main__':
-
-        import logging
-        from optparse import OptionParser
-
-        parser = OptionParser('usage: %prog [options] <host or path> [port]')
+        parser = optparse.OptionParser(
+            'usage: %prog [options] <host or path> [port]')
         parser.add_option('-d', '--debug', action='store_true', default=False,
                           help='increase logging verbosity')
         parser.add_option('-q', '--quiet', action='store_true', default=False,
@@ -224,58 +228,76 @@ Sample socket client application:
             'format': log_format,
         })
 
-        MyApp(*args, name='sample.py').start()
+        app = MyApp('global', *args, name='sample.py', trackparam='libyate_sample',
+                    restart=False)
+        app.install(app.call_route, 'call.route', 50)
+        app.watch(app.timer, 'engine.timer')
+        app.main()
 
 
 * Expected output:
 
 ::
 
-    $ sample.py -d /tmp/sample.sock
-    2014-07-01 10:38:33,722 <sample.py[MainThread]:INFO> Starting module
-    2014-07-01 10:38:33,723 <sample.py[InputThread]:DEBUG> Started input
-    2014-07-01 10:38:33,723 <sample.py[OutputThread]:DEBUG> Started output
-    2014-07-01 10:38:33,724 <sample.py[StartupThread]:DEBUG> Executing user code
-    2014-07-01 10:38:33,724 <sample.py[StartupThread]:INFO> Connecting as "global"
-    2014-07-01 10:38:33,725 <sample.py[StartupThread]:DEBUG> Sending output: Starting sample.py
-    2014-07-01 10:38:33,725 <sample.py[StartupThread]:INFO> Querying parameter "engine.version"
-    2014-07-01 10:38:33,726 <sample.py[StartupThread]:INFO> Installing handler for "call.route"
-    2014-07-01 10:38:33,726 <sample.py[StartupThread]:DEBUG> Installing watcher for "engine.timer"
-    2014-07-01 10:38:33,727 <sample.py[StartupThread]:DEBUG> Sending message to the engine: libyate.engine.Message('somerandomid', datetime.datetime(2014, 7, 1, 13, 38, 33, 726707), 'myapp.test', None, libyate.type.OrderedDict((('path', '/bin:/usr/bin'), ('testing', True), ('done', '75%'))))
-    2014-07-01 10:38:33,728 <sample.py[OutputThread]:DEBUG> Sending 19 bytes: %%>connect:global::
-    2014-07-01 10:38:33,729 <sample.py[OutputThread]:DEBUG> Sending 28 bytes: %%>output:Starting sample.py
-    2014-07-01 10:38:33,729 <sample.py[OutputThread]:DEBUG> Sending 27 bytes: %%>setlocal:engine.version:
-    2014-07-01 10:38:33,729 <sample.py[OutputThread]:DEBUG> Sending 26 bytes: %%>install:50:call.route::
-    2014-07-01 10:38:33,729 <sample.py[OutputThread]:DEBUG> Sending 21 bytes: %%>watch:engine.timer
-    2014-07-01 10:38:33,729 <sample.py[OutputThread]:DEBUG> Sending 89 bytes: %%>message:somerandomid:1404221913:myapp.test::path=/bin%z/usr/bin:testing=true:done=75%%
-    2014-07-01 10:38:33,734 <sample.py[InputThread]:DEBUG> Received 37 bytes: %%<setlocal:engine.version:5.3.0:true
-    2014-07-01 10:38:33,734 <sample.py[InputThread]:DEBUG> Received 29 bytes: %%<install:50:call.route:true
-    2014-07-01 10:38:33,735 <sample.py[InputThread]:DEBUG> Received 26 bytes: %%<watch:engine.timer:true
-    2014-07-01 10:38:33,740 <sample.py[InputThread]:DEBUG> Received 84 bytes: %%<message:somerandomid:false:myapp.test::path=/bin%z/usr/bin:testing=true:done=75%%
-    2014-07-01 10:38:33,743 <sample.py[SetLocalReply(4462266064)]:DEBUG> Received command: libyate.engine.SetLocalReply('engine.version', '5.3.0', True)
-    2014-07-01 10:38:33,743 <sample.py[SetLocalReply(4462266064)]:INFO> Parameter "engine.version" set to: 5.3.0
-    2014-07-01 10:38:33,744 <sample.py[InstallReply(4460445008)]:DEBUG> Received command: libyate.engine.InstallReply(50, 'call.route', True)
-    2014-07-01 10:38:33,744 <sample.py[InstallReply(4460445008)]:INFO> Installed handler for "call.route"
-    2014-07-01 10:38:33,744 <sample.py[WatchReply(4462267408)]:DEBUG> Received command: libyate.engine.WatchReply('engine.timer', True)
-    2014-07-01 10:38:33,745 <sample.py[WatchReply(4462267408)]:INFO> Installed watcher for "engine.timer"
-    2014-07-01 10:38:33,746 <sample.py[MessageReply(4462266640)]:DEBUG> Received command: libyate.engine.MessageReply('somerandomid', False, 'myapp.test', None, libyate.type.OrderedDict((('path', '/bin:/usr/bin'), ('testing', 'true'), ('done', '75%'))))
-    2014-07-01 10:38:33,746 <sample.py[MessageReply(4462266640)]:DEBUG> Handler: <bound method MyApp.reply of <__main__.MyApp object at 0x109f7af50>>
-    2014-07-01 10:38:33,746 <sample.py[MessageReply(4462266640)]:INFO> Got reply for "somerandomid"
-    2014-07-01 10:38:33,746 <sample.py[MessageReply(4462266640)]:DEBUG> Result: None
-    2014-07-01 10:38:34,005 <sample.py[InputThread]:DEBUG> Received 115 bytes: %%<message::false:engine.timer::time=1404221914:nodename=localhost:handlers=tone%z90,yrtp%z90,sip%z90,regfile%z100
-    2014-07-01 10:38:34,017 <sample.py[MessageReply(4460148880)]:DEBUG> Received command: libyate.engine.MessageReply(None, False, 'engine.timer', None, libyate.type.OrderedDict((('time', '1404221914'), ('nodename', 'localhost'), ('handlers', 'tone:90,yrtp:90,sip:90,regfile:100'))))
-    2014-07-01 10:38:34,017 <sample.py[MessageReply(4460148880)]:DEBUG> Handler: <bound method MyApp.timer of <__main__.MyApp object at 0x109f7af50>>
-    2014-07-01 10:38:34,017 <sample.py[MessageReply(4460148880)]:INFO> Some periodic routine
-    2014-07-01 10:38:34,017 <sample.py[MessageReply(4460148880)]:DEBUG> Result: None
-    2014-07-01 10:38:34,729 <sample.py[StartupThread]:DEBUG> Removing watcher for "engine.timer"
-    2014-07-01 10:38:34,758 <sample.py[OutputThread]:DEBUG> Sending 23 bytes: %%>unwatch:engine.timer
-    2014-07-01 10:38:34,764 <sample.py[InputThread]:DEBUG> Received 28 bytes: %%<unwatch:engine.timer:true
-    2014-07-01 10:38:34,793 <sample.py[UnWatchReply(4460445008)]:DEBUG> Received command: libyate.engine.UnWatchReply('engine.timer', True)
-    2014-07-01 10:38:34,793 <sample.py[UnWatchReply(4460445008)]:INFO> Removed watcher for "engine.timer"
-    ^C2014-07-01 10:38:41,852 <sample.py[MainThread]:INFO> Stopping module
-    2014-07-01 10:38:41,852 <sample.py[InputThread]:DEBUG> Stopping input
-    2014-07-01 10:38:41,852 <sample.py[MainThread]:DEBUG> Waiting for threads
-    2014-07-01 10:38:41,853 <sample.py[InputThread]:INFO> Stopping module
+    $ python sample_client.py -d 127.0.0.1 5555
+    2015-03-03 18:30:35,476 <sample.py[MainThread]:DEBUG> Setting handler tracking parameter
+    2015-03-03 18:30:35,476 <sample.py[MainThread]:INFO> Setting parameter "trackparam" to: libyate_sample
+    2015-03-03 18:30:35,477 <sample.py[MainThread]:DEBUG> Setting module restart parameter
+    2015-03-03 18:30:35,477 <sample.py[MainThread]:INFO> Setting parameter "restart" to: false
+    2015-03-03 18:30:35,477 <sample.py[MainThread]:INFO> Connecting as "global"
+    2015-03-03 18:30:35,478 <sample.py[MainThread]:INFO> Installing handler for "call.route"
+    2015-03-03 18:30:35,478 <sample.py[MainThread]:DEBUG> Installing watcher for "engine.timer"
+    2015-03-03 18:30:35,478 <sample.py[MainThread]:INFO> Starting module threads
+    2015-03-03 18:30:35,479 <sample.py[InputThread]:DEBUG> Started input
+    2015-03-03 18:30:35,479 <sample.py[OutputThread]:DEBUG> Started output
+    2015-03-03 18:30:35,479 <sample.py[OutputThread]:DEBUG> Sending 20 bytes: '%%>connect:global::\n'
+    2015-03-03 18:30:35,479 <sample.py[MainLoopThread]:DEBUG> Started main loop
+    2015-03-03 18:30:35,479 <sample.py[MainThread]:DEBUG> Dumping the startup queue into the output queue
+    2015-03-03 18:30:35,480 <sample.py[MainThread]:DEBUG> Executing user startup code
+    2015-03-03 18:30:35,480 <sample.py[MainThread]:DEBUG> Sending output: Starting sample.py
+    2015-03-03 18:30:35,480 <sample.py[MainThread]:INFO> Querying parameter "engine.version"
+    2015-03-03 18:30:35,481 <sample.py[MainThread]:DEBUG> Sending message to the engine: libyate.engine.Message('somerandomid', datetime.datetime(2015, 3, 3, 21, 30, 35, 480296), 'myapp.test', None, libyate.type.OrderedDict((('path', '/bin:/usr/bin'), ('testing', True), ('done', '75%'))))
+    2015-03-03 18:30:35,481 <sample.py[OutputThread]:DEBUG> Sending 38 bytes: '%%>setlocal:trackparam:libyate_sample\n'
+    2015-03-03 18:30:35,481 <sample.py[OutputThread]:DEBUG> Sending 26 bytes: '%%>setlocal:restart:false\n'
+    2015-03-03 18:30:35,481 <sample.py[OutputThread]:DEBUG> Sending 27 bytes: '%%>install:50:call.route::\n'
+    2015-03-03 18:30:35,482 <sample.py[OutputThread]:DEBUG> Sending 22 bytes: '%%>watch:engine.timer\n'
+    2015-03-03 18:30:35,482 <sample.py[OutputThread]:DEBUG> Sending 29 bytes: '%%>output:Starting sample.py\n'
+    2015-03-03 18:30:35,482 <sample.py[OutputThread]:DEBUG> Sending 28 bytes: '%%>setlocal:engine.version:\n'
+    2015-03-03 18:30:35,482 <sample.py[OutputThread]:DEBUG> Sending 90 bytes: '%%>message:somerandomid:1425418235:myapp.test::path=/bin%z/usr/bin:testing=true:done=75%%\n'
+    2015-03-03 18:30:35,484 <sample.py[InputThread]:DEBUG> Received 42 bytes: '%%<setlocal:trackparam:libyate_sample:true'
+    2015-03-03 18:30:35,484 <sample.py[InputThread]:DEBUG> Received 127 bytes: '\n%%<setlocal:restart:false:true\n%%<install:50:call.route:true\n%%<watch:engine.timer:true\n%%<setlocal:engine.version:5.4.0:true\n'
+    2015-03-03 18:30:35,489 <sample.py[SetLocalReply(4313939920)]:DEBUG> Received command: libyate.engine.SetLocalReply('trackparam', 'libyate_sample', True)
+    2015-03-03 18:30:35,489 <sample.py[SetLocalReply(4313939920)]:INFO> Parameter "trackparam" set to: libyate_sample
+    2015-03-03 18:30:35,490 <sample.py[InputThread]:DEBUG> Received 84 bytes: '%%<message:somerandomid:false:myapp.test::path=/bin%z/usr/bin:testing=true:done=75%%'
+    2015-03-03 18:30:35,490 <sample.py[SetLocalReply(4313939856)]:DEBUG> Received command: libyate.engine.SetLocalReply('restart', 'false', True)
+    2015-03-03 18:30:35,490 <sample.py[InputThread]:DEBUG> Received 1 bytes: '\n'
+    2015-03-03 18:30:35,490 <sample.py[SetLocalReply(4313939856)]:INFO> Parameter "restart" set to: false
+    2015-03-03 18:30:35,491 <sample.py[InstallReply(4313939792)]:DEBUG> Received command: libyate.engine.InstallReply(50, 'call.route', True)
+    2015-03-03 18:30:35,491 <sample.py[InstallReply(4313939792)]:INFO> Installed handler for "call.route"
+    2015-03-03 18:30:35,492 <sample.py[WatchReply(4313939920)]:DEBUG> Received command: libyate.engine.WatchReply('engine.timer', True)
+    2015-03-03 18:30:35,492 <sample.py[WatchReply(4313939920)]:INFO> Installed watcher for "engine.timer"
+    2015-03-03 18:30:35,492 <sample.py[SetLocalReply(4313939856)]:DEBUG> Received command: libyate.engine.SetLocalReply('engine.version', '5.4.0', True)
+    2015-03-03 18:30:35,492 <sample.py[SetLocalReply(4313939856)]:INFO> Parameter "engine.version" set to: 5.4.0
+    2015-03-03 18:30:35,493 <sample.py[MessageReply(4309208784)]:DEBUG> Received command: libyate.engine.MessageReply('somerandomid', False, 'myapp.test', None, libyate.type.OrderedDict((('path', '/bin:/usr/bin'), ('testing', 'true'), ('done', '75%'))))
+    2015-03-03 18:30:35,493 <sample.py[MessageReply(4309208784)]:DEBUG> Handler: <bound method MyApp.reply of <__main__.MyApp object at 0x101217bd0>>
+    2015-03-03 18:30:35,493 <sample.py[MessageReply(4309208784)]:INFO> Got reply for "somerandomid"
+    2015-03-03 18:30:35,493 <sample.py[MessageReply(4309208784)]:DEBUG> Result: None
+    2015-03-03 18:30:36,001 <sample.py[InputThread]:DEBUG> Received 589 bytes: '%%<message::false:engine.timer::time=1425418236:nodename=hades:handlers=subscription%z90,zlibcompress%z90,socks%z90,openssl%z90,mux%z90,javascript%z90,callfork%z90,conf%z90,dumb%z90,enumroute%z90,gvoice%z90,pbx%z90,iax%z90,jingle%z90,mgcpgw%z90,mrcp%z90,monitoring%z90,park%z90,queues%z90,sipfeatures%z90,users%z90,snmpagent%z90,fileinfo%z90,filetransfer%z90,stun%z90,analog%z90,sig%z90,jbfeatures%z90,jabber%z90,sigtransport%z90,mgcpca%z90,ciscosm%z90,analogdetect%z90,tonedetect%z90,tone%z90,yrtp%z90,analyzer%z90,wave%z90,sip%z90,presence%z90,queuesnotify%z90,register%z90,regfile%z100\n'
+    2015-03-03 18:30:36,048 <sample.py[MessageReply(4313939792)]:DEBUG> Received command: libyate.engine.MessageReply(None, False, 'engine.timer', None, libyate.type.OrderedDict((('time', '1425418236'), ('nodename', 'hades'), ('handlers', 'subscription:90,zlibcompress:90,socks:90,openssl:90,mux:90,javascript:90,callfork:90,conf:90,dumb:90,enumroute:90,gvoice:90,pbx:90,iax:90,jingle:90,mgcpgw:90,mrcp:90,monitoring:90,park:90,queues:90,sipfeatures:90,users:90,snmpagent:90,fileinfo:90,filetransfer:90,stun:90,analog:90,sig:90,jbfeatures:90,jabber:90,sigtransport:90,mgcpca:90,ciscosm:90,analogdetect:90,tonedetect:90,tone:90,yrtp:90,analyzer:90,wave:90,sip:90,presence:90,queuesnotify:90,register:90,regfile:100'))))
+    2015-03-03 18:30:36,048 <sample.py[MessageReply(4313939792)]:DEBUG> Handler: <bound method MyApp.timer of <__main__.MyApp object at 0x101217bd0>>
+    2015-03-03 18:30:36,048 <sample.py[MessageReply(4313939792)]:INFO> Some periodic routine
+    2015-03-03 18:30:36,049 <sample.py[MessageReply(4313939792)]:DEBUG> Result: None
+    2015-03-03 18:30:36,484 <sample.py[MainThread]:DEBUG> Removing watcher for "engine.timer"
+    2015-03-03 18:30:36,484 <sample.py[MainThread]:DEBUG> Entering main loop
+    2015-03-03 18:30:36,520 <sample.py[OutputThread]:DEBUG> Sending 24 bytes: '%%>unwatch:engine.timer\n'
+    2015-03-03 18:30:36,525 <sample.py[InputThread]:DEBUG> Received 29 bytes: '%%<unwatch:engine.timer:true\n'
+    2015-03-03 18:30:36,551 <sample.py[UnWatchReply(4309208784)]:DEBUG> Received command: libyate.engine.UnWatchReply('engine.timer', True)
+    2015-03-03 18:30:36,551 <sample.py[UnWatchReply(4309208784)]:INFO> Removed watcher for "engine.timer"
+    ^C2015-03-03 18:30:41,455 <sample.py[MainThread]:INFO> Stopping module
+    2015-03-03 18:30:41,455 <sample.py[InputThread]:DEBUG> Stopping input
+    2015-03-03 18:30:41,455 <sample.py[InputThread]:INFO> Stopping module
+    2015-03-03 18:30:41,467 <sample.py[OutputThread]:INFO> Stopping module
+    2015-03-03 18:30:41,510 <sample.py[MainThread]:DEBUG> Waiting for threads
 
 
 Licensing:

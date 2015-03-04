@@ -11,21 +11,12 @@ import libyate.extmodule
 
 # noinspection PyDocstring,PyUnusedLocal
 class MyApp(libyate.extmodule.SocketClient):
-    def run(self):
-        # Connect to the engine
-        self.connect('global')
-
+    def start(self):
         # Send message to the engine
         self.output('Starting sample.py')
 
         # Query engine version
         self.set_local('engine.version')
-
-        # Install handler for "call.route" with priority 50
-        self.install(self.call_route, 'call.route', 50)
-
-        # Install watcher for "engine.timer"
-        self.watch(self.timer, 'engine.timer')
 
         # Send a message to the engine
         self.message(name='myapp.test', id='somerandomid',
@@ -74,4 +65,8 @@ if __name__ == '__main__':
         'format': log_format,
     })
 
-    MyApp(*args, name='sample.py').start()
+    app = MyApp('global', *args, name='sample.py', trackparam='libyate_sample',
+                restart=False)
+    app.install(app.call_route, 'call.route', 50)
+    app.watch(app.timer, 'engine.timer')
+    app.main()

@@ -18,27 +18,39 @@ import libyate.engine
 class Application(object):
     """Yate external module application
 
-    :param str name: Application name for logging purposes
+    :param str name: application name for logging purposes
+    :param str trackparam: value for handler tracking parameter
+    :param bool restart: restart module if it terminates unexpectedly
     """
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, name=None):
-
-        if name is None:
-            self.__name__ = name or self.__class__.__name__
-        else:
-            self.__name__ = name
+    def __init__(self, name=None, trackparam=None, restart=None):
 
         self.__msg_callback__ = {}
         self.__msg_handlers__ = {}
         self.__msg_watchers__ = {}
 
         self.__input_buffer__ = None
+
         self.__input_queue__ = Queue.Queue()
         self.__output_queue__ = Queue.Queue()
+        self.__startup_queue__ = Queue.Queue()
 
-        self.logger = logging.getLogger(self.__name__)
+        if name is None:
+            self.logger = logging.getLogger(
+                '.'.join((self.__module__, self.__class__.__name__)))
+
+        else:
+            self.logger = logging.getLogger(name)
+
+        if trackparam is not None:
+            self.logger.debug('Setting handler tracking parameter')
+            self.set_local('trackparam', trackparam)
+
+        if restart is not None:
+            self.logger.debug('Setting module restart parameter')
+            self.set_local('restart', 'true' if restart else 'false')
 
     @abstractmethod
     def readline(self):
@@ -68,16 +80,13 @@ class Application(object):
 
         pass
 
-    @abstractmethod
-    def run(self):
-        """User defined startup routine"""
+    def main(self, threaded=True):
+        """Module main loop
 
-        pass
+        :param bool threaded: each message will be processed on it's own thread
+        """
 
-    def start(self):
-        """Module startup routine"""
-
-        self.logger.info('Starting module')
+        self.__input_buffer__ = ''
 
         signal.signal(signal.SIGINT, self.stop)
         signal.signal(signal.SIGTERM, self.stop)
@@ -87,7 +96,7 @@ class Application(object):
         if hasattr(signal, 'CTRL_C_EVENT'):
             signal.signal(signal.CTRL_C_EVENT, self.stop)
 
-        self.__input_buffer__ = ''
+        self.logger.info('Starting module threads')
 
         ti = Thread(target=self._input, name='InputThread')
         ti.daemon = True
@@ -97,27 +106,36 @@ class Application(object):
         to.daemon = True
         to.start()
 
-        ts = Thread(target=self._startup, name='StartupThread')
-        ts.daemon = True
-        ts.start()
+        tm = Thread(target=self._main, name='MainLoopThread',
+                    kwargs={'threaded': threaded})
+        tm.daemon = True
+        tm.start()
 
-        # Main loop
+        startup_queue, self.__startup_queue__ = self.__startup_queue__, None
+
+        self.logger.debug('Dumping the startup queue into the output queue')
+        while not startup_queue.empty():
+            self.__output_queue__.put(startup_queue.get())
+
+        self.logger.debug('Executing user startup code')
+        try:
+            self.start()
+
+        except:
+            self.logger.exception('Error executing user startup code')
+            raise
+
+        self.logger.debug('Entering main loop')
         while True:
-
-            try:
-                cmd = self._receive()
-
-                if not cmd:
-                    break
-
-                Thread(target=self._command, args=(cmd, ),
-                       name='{0}({1})'.format(
-                           type(cmd).__name__, id(cmd))).start()
-
-            except:
-                self.logger.exception('Error processing command')
+            tm.join(60)
+            if not tm.is_alive():
+                break
 
         self.logger.debug('Waiting for threads')
+
+    def start(self):
+        """Module startup routine"""
+        pass
 
     # noinspection PyUnusedLocal
     def stop(self, signum=None, frame=None):
@@ -211,27 +229,33 @@ class Application(object):
         :type cmd: libyate.cmd.Message or libyate.cmd.MessageReply
         """
 
-        # Message from installed handlers
-        if isinstance(cmd, libyate.engine.Message):
-            handler = self.__msg_handlers__[cmd.name]
+        try:
+            # Message from installed handlers
+            if isinstance(cmd, libyate.engine.Message):
+                handler = self.__msg_handlers__[cmd.name]
 
-        # Reply from application generated message
-        elif cmd.id is not None:
-            handler = self.__msg_callback__.pop(cmd.id)
+            # Reply from application generated message
+            elif cmd.id is not None:
+                handler = self.__msg_callback__.pop(cmd.id)
 
-        # Notification from installed watchers
-        else:
-            handler = self.__msg_watchers__[cmd.name]
+            # Notification from installed watchers
+            else:
+                handler = self.__msg_watchers__[cmd.name]
 
-        self.logger.debug('Handler: {0}'.format(handler))
+            self.logger.debug('Handler: {0}'.format(handler))
 
-        if handler is not None:
-            result = handler(cmd)
+            if handler is not None:
+                result = handler(cmd)
 
-            self.logger.debug('Result: {0}'.format(result))
+                self.logger.debug('Result: {0}'.format(result))
 
-            if result is not None:
-                self._send(result)
+                if result is not None:
+                    self._send(result)
+
+        except:
+            self.logger.exception('Error processing message: {0}'.format(cmd))
+            if isinstance(cmd, libyate.engine.Message):
+                self._send(cmd.reply())
 
     def _command_setlocal_reply(self, cmd):
         """Handler function for SetLocalReply commands
@@ -316,6 +340,30 @@ class Application(object):
         # Shutdown module if the input handling thread stops
         self.stop()
 
+    def _main(self, threaded=True):
+        """Handler function for the main loop thread"""
+
+        self.logger.debug('Started main loop')
+
+        while True:
+
+            try:
+                cmd = self._receive()
+
+                if not cmd:
+                    break
+
+                if threaded:
+                    Thread(target=self._command, args=(cmd, ),
+                           name='{0}({1})'.format(
+                               type(cmd).__name__, id(cmd))).start()
+
+                else:
+                    self._command(cmd)
+
+            except:
+                self.logger.exception('Error processing command')
+
     def _output(self):
         """Handler function for the output handling thread"""
 
@@ -373,26 +421,21 @@ class Application(object):
             except Queue.Empty:
                 continue
 
-    def _send(self, command):
+    def _send(self, command, force=False):
         """Insert command into the output queue
 
-        :param libyate.cmd.Command command: A libyate Command object to send
+        :param libyate.cmd.Command command: a libyate Command object to send
             to the engine
+        :param bool force: force sending to the output queue even if the main
+            thread is not yet started
         """
 
-        self.__output_queue__.put('{0}\n'.format(command))
+        if force or self.__startup_queue__ is None:
+            queue = self.__output_queue__
+        else:
+            queue = self.__startup_queue__
 
-    def _startup(self):
-        """Handler function for the startup handling thread"""
-
-        try:
-            self.logger.debug('Executing user code')
-            self.run()
-
-        # Shutdown module if user code raised an exception
-        except:
-            self.logger.exception('Error on module startup')
-            self.stop()
+        queue.put('{0}\n'.format(command))
 
     # noinspection PyShadowingBuiltins
     def connect(self, role, id=None, type=None):
@@ -405,7 +448,7 @@ class Application(object):
         """
 
         self.logger.info('Connecting as "{0}"'.format(role))
-        self._send(libyate.engine.Connect(role, id, type))
+        self._send(libyate.engine.Connect(role, id, type), force=True)
 
     def install(self, handler, name, priority=None, filter_name=None,
                 filter_value=None):
@@ -581,57 +624,49 @@ class Script(Application):
 
         sys.stdin.close()
 
-    @abstractmethod
-    def run(self):
-        """User defined startup routine"""
-
 
 # noinspection PyBroadException
 class SocketClient(Application):
     """Yate external module socket client
 
+    :param str role: role of this connection: global, channel, play,
+        record, playrec
     :param str host_or_path: Yate listener host address or path to the Yate
         listener unix socket
     :param int port: Yate listener port number
     :param str name: Application name for logging purposes
+    :param str trackparam: value for handler tracking parameter
+    :param bool restart: restart module if it terminates unexpectedly
+    :param str id: channel id to connect this socket to
+    :param str type: type of data channel, assuming audio if missing
     """
 
-    def __init__(self, host_or_path, port=None, name=None):
+    def __init__(self, role, host_or_path, port=None, name=None, trackparam=None,
+                 restart=None, id=None, type=None):
 
-        super(SocketClient, self).__init__(name)
+        super(SocketClient, self).__init__(
+            name=name, trackparam=trackparam, restart=restart)
+
+        self.connect(role=role, id=id, type=type)
 
         if host_or_path is None:
             raise ValueError('Either a host or a path must be specified')
         if host_or_path[0] not in ['.', '/'] and port is None:
             raise ValueError('Port number must be specified for tcp hosts')
 
-        self._host_or_path = host_or_path
-        self._port = port
-
-        self._socket = None
-
-    def __del__(self):
-        if self._socket is not None:
-            self._socket.close()
-            self._socket = None
-
-    def start(self):
-        """Module startup routine"""
-
         # Try to connect the socket
         try:
 
             # UNIX socket
-            if self._host_or_path[0] in ['.', '/']:
-                self._socket = socket.socket(family=socket.AF_UNIX)
-                self._socket.connect(self._host_or_path)
+            if host_or_path[0] in ['.', '/']:
+                self.__socket__ = socket.socket(family=socket.AF_UNIX)
+                self.__socket__.connect(host_or_path)
 
             # INET/INET6 socket
             else:
                 # Get protocols and addresses
-                l = socket.getaddrinfo(
-                    self._host_or_path, self._port,
-                    socket.AF_UNSPEC, socket.SOCK_STREAM, socket.IPPROTO_TCP)
+                l = socket.getaddrinfo(host_or_path, port, socket.AF_UNSPEC,
+                                       socket.SOCK_STREAM, socket.IPPROTO_TCP)
 
                 while l:
 
@@ -640,7 +675,7 @@ class SocketClient(Application):
 
                     # Try to create the socket
                     try:
-                        self._socket = socket.socket(f, t, p)
+                        self.__socket__ = socket.socket(f, t, p)
 
                     # Error creating the socket
                     except socket.error:
@@ -654,11 +689,11 @@ class SocketClient(Application):
 
                     # Try to connect to the address
                     try:
-                        self._socket.connect(a)
+                        self.__socket__.connect(a)
 
                     # Error connecting to the address
                     except socket.error:
-                        self._socket.close()
+                        self.__socket__.close()
 
                         # Try next resource
                         if l:
@@ -674,14 +709,10 @@ class SocketClient(Application):
         except:
             self.logger.exception('Failed to connect')
 
-        # Socket connected, continue startup
-        else:
-
-            # Main loop
-            super(SocketClient, self).start()
-
-            # Close the socket
-            self.close()
+    def __del__(self):
+        if self.__socket__ is not None:
+            self.__socket__.close()
+            self.__socket__ = None
 
     def readline(self):
         """Get the next command from the engine
@@ -696,7 +727,7 @@ class SocketClient(Application):
         while '\n' not in self.__input_buffer__:
 
             try:
-                data = self._socket.recv(8192)
+                data = self.__socket__.recv(8192)
             except socket.error as e:
                 raise IOError(str(e))
 
@@ -724,7 +755,7 @@ class SocketClient(Application):
                           .format(len(string), string))
 
         try:
-            self._socket.sendall(string)
+            self.__socket__.sendall(string)
 
         except socket.error as e:
             raise IOError(str(e))
@@ -732,15 +763,11 @@ class SocketClient(Application):
     def close(self):
         """Close input and stop receiving commands"""
 
-        if self._socket is not None:
+        if self.__socket__ is not None:
 
             try:
                 # Close socket for read operations
-                self._socket.shutdown(socket.SHUT_RD)
+                self.__socket__.shutdown(socket.SHUT_RD)
 
             except socket.error:
                 pass
-
-    @abstractmethod
-    def run(self):
-        """User defined startup routine"""
