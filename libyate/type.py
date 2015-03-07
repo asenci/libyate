@@ -83,7 +83,7 @@ def yate_encode(string):
     :rtype: str
     """
 
-    special_chars = ''.join([chr(i) for i in xrange(32)] + ['%', ':', '='])
+    special_chars = ''.join([chr(i) for i in xrange(32)] + ['%', ':'])
 
     # noinspection PyDocstring
     def replace(m):
