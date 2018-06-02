@@ -20,11 +20,11 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 __title__ = 'libyate'
 __summary__ = 'Python library for developing Yate external applications'
-__url__ = 'http://bitbucket.org/asenci/libyate'
+__url__ = 'https://github.com/asenci/libyate'
 
 __version__ = '1.0'
 
-__author__ = 'Andre Sencioles Vitorio Oliveira'
-__email__ = 'andre@bcp.net.br'
+__author__ = 'Andre Sencioles'
+__email__ = 'asenci@gmail.com'
 
 __license__ = 'ISC License'
